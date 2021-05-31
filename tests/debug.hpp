@@ -3,18 +3,22 @@
 #include <array>
 #include <vector>
 
-class debugger
+class Debugger
 {
 public:
-  static auto get_instance() -> debugger&;
+  static auto GetInstance() -> Debugger&;
 
-  virtual ~debugger() = default;
+  virtual ~Debugger() = default;
 
-  virtual void save_all() const = 0;
+  virtual void SaveAll() const = 0;
 
-  virtual void log_water(std::vector<float>&& water, int w, int h) = 0;
+  virtual void EnableWaterLog() = 0;
 
-  virtual void log_flow(std::vector<std::array<float, 4>>&& flow,
-                        int w,
-                        int h) = 0;
+  virtual void EnableSedimentLog() = 0;
+
+  virtual void LogWater(const std::vector<float>& water, int w, int h) = 0;
+
+  virtual void LogSediment(const std::vector<float>& sediment,
+                           int w,
+                           int h) = 0;
 };

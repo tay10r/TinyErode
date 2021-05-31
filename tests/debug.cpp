@@ -19,17 +19,6 @@ contains_nan(float n)
 }
 
 bool
-contains_nan(const std::array<float, 4>& flow)
-{
-  for (auto n : flow) {
-    if (contains_nan(n))
-      return true;
-  }
-
-  return false;
-}
-
-bool
 contains_inf(float n)
 {
   auto inf = std::numeric_limits<float>::infinity();
@@ -37,23 +26,12 @@ contains_inf(float n)
   return (n == inf) || (n == -inf);
 }
 
-bool
-contains_inf(const std::array<float, 4>& flow)
-{
-  for (auto n : flow) {
-    if (contains_inf(n))
-      return true;
-  }
-
-  return false;
-}
-
 template<typename pixel_type>
 class frame final
 {
 public:
-  frame(std::vector<pixel_type>&& d, int w, int h)
-    : m_data(std::move(d))
+  frame(const std::vector<pixel_type>& d, int w, int h)
+    : m_data(d)
     , m_width(w)
     , m_height(h)
   {
@@ -113,20 +91,31 @@ save_to_ppm(const char* path, int w, int h, pixel_converter converter)
   return true;
 }
 
-class debugger_impl final : public debugger
+class debugger_impl final : public Debugger
 {
 public:
-  void log_water(std::vector<float>&& data, int w, int h) override
+  void EnableWaterLog() override { m_water_log_enabled = true; }
+
+  void EnableSedimentLog() override { m_sediment_log_enabled = true; }
+
+  void LogWater(const std::vector<float>& data, int w, int h) override
   {
-    m_water_frames.emplace_back(std::move(data), w, h);
+    if (m_water_log_enabled)
+      m_water_frames.emplace_back(data, w, h);
   }
 
-  void log_flow(std::vector<std::array<float, 4>>&& data, int w, int h) override
+  void LogSediment(const std::vector<float>& data, int w, int h) override
   {
-    m_flow_frames.emplace_back(std::move(data), w, h);
+    if (m_sediment_log_enabled)
+      m_sediment_frames.emplace_back(data, w, h);
   }
 
-  void save_all() const override { save_water_frames(); }
+  void SaveAll() const override
+  {
+    save_water_frames();
+
+    save_sediment_frames();
+  }
 
   void save_water_frames() const
   {
@@ -149,6 +138,8 @@ public:
 
       auto path = path_stream.str();
 
+      std::cout << "Saving '" << path << "'." << std::endl;
+
       const auto& data = f.get_data();
       auto w = f.get_width();
       auto h = f.get_height();
@@ -157,6 +148,45 @@ public:
         auto water_level = data[index];
 
         auto normalized_wl = (water_level - min) / range;
+
+        return { { normalized_wl, normalized_wl, normalized_wl } };
+      };
+
+      save_to_ppm(path.c_str(), w, h, to_pixel);
+
+      frame_counter++;
+    }
+  }
+
+  void save_sediment_frames() const
+  {
+    auto min_and_range = get_sediment_min_and_range();
+
+    auto min = min_and_range.first;
+
+    auto range = min_and_range.second;
+
+    int frame_counter = 0;
+
+    for (const auto& f : m_sediment_frames) {
+
+      std::ostringstream path_stream;
+      path_stream << "sediment_";
+      path_stream << std::setfill('0') << std::setw(4) << frame_counter;
+      path_stream << ".ppm";
+
+      auto path = path_stream.str();
+
+      std::cout << "Saving '" << path << "'." << std::endl;
+
+      const auto& data = f.get_data();
+      auto w = f.get_width();
+      auto h = f.get_height();
+
+      auto to_pixel = [&data, min, range](int index) -> std::array<float, 3> {
+        auto sediment_level = data[index];
+
+        auto normalized_wl = (sediment_level - min) / range;
 
         return { { normalized_wl, normalized_wl, normalized_wl } };
       };
@@ -179,7 +209,24 @@ public:
 
       auto min_max = std::minmax_element(data.begin(), data.end());
 
-      std::cout << *min_max.first << ' ' << *min_max.second << std::endl;
+      global_min = std::min(global_min, *min_max.first);
+      global_max = std::max(global_max, *min_max.second);
+    }
+
+    return { global_min, global_max - global_min };
+  }
+
+  std::pair<float, float> get_sediment_min_and_range() const
+  {
+    float global_min = std::numeric_limits<float>::infinity();
+
+    float global_max = -std::numeric_limits<float>::infinity();
+
+    for (const auto& f : m_sediment_frames) {
+
+      const auto& data = f.get_data();
+
+      auto min_max = std::minmax_element(data.begin(), data.end());
 
       global_min = std::min(global_min, *min_max.first);
       global_max = std::max(global_max, *min_max.second);
@@ -191,17 +238,25 @@ public:
 private:
   using water_frame = frame<float>;
 
+  using sediment_frame = frame<float>;
+
   using flow_frame = frame<std::array<float, 4>>;
 
   std::vector<water_frame> m_water_frames;
 
+  std::vector<sediment_frame> m_sediment_frames;
+
   std::vector<flow_frame> m_flow_frames;
+
+  bool m_water_log_enabled = false;
+
+  bool m_sediment_log_enabled = false;
 };
 
 } // namespace
 
-debugger&
-debugger::get_instance()
+Debugger&
+Debugger::GetInstance()
 {
   static debugger_impl db;
   return db;
