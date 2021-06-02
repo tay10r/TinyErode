@@ -5,8 +5,6 @@
 #include <numeric>
 #include <vector>
 
-#undef NDEBUG
-
 #include <cassert>
 #include <cmath>
 
@@ -132,7 +130,7 @@ private:
   int ToIndex(int x, int y) const noexcept { return (y * GetWidth()) + x; }
 
 private:
-  float mTimeStep = 0.05;
+  float mTimeStep = 0.0125;
 
   float mGravity = 9.8;
 
@@ -187,16 +185,21 @@ TinyErode::TransportWaterAt(WaterAdder& water, int x, int y)
 
   auto waterDelta = volumeDelta / (pipeLength * pipeLength);
 
-  water(x, y, waterDelta);
+  float waterLevel = water(x, y, waterDelta);
 
   // Compute Water Velocity
 
   float dx = 0.5f * ((inflow[2] - flow[1]) + (flow[2] - inflow[1]));
   float dy = 0.5f * ((inflow[0] - flow[0]) + (flow[3] - inflow[3]));
 
+  float avgWaterLevel = waterLevel - (waterDelta * 0.5f);
+
   Velocity velocity{ { 0, 0 } };
-  velocity[0] = dx / (pipeLength / waterDelta);
-  velocity[1] = dy / (pipeLength / waterDelta);
+
+  if (avgWaterLevel != 0.0f) {
+    velocity[0] = dx / (pipeLength * avgWaterLevel);
+    velocity[1] = dy / (pipeLength * avgWaterLevel);
+  }
 
   mVelocity[ToIndex(x, y)] = velocity;
 }
@@ -230,7 +233,7 @@ TinyErode::ComputeFlowAndTiltAt(const Height& height,
   auto centerH = height(x, y);
   auto centerW = water(x, y);
 
-  std::array<float, 4> heightNeighbors{ 0, 0, 0, 0 };
+  std::array<float, 4> heightNeighbors{ centerH, centerH, centerH, centerH };
 
   for (int i = 0; i < 4; i++) {
 
@@ -266,20 +269,22 @@ TinyErode::ComputeFlowAndTiltAt(const Height& height,
 
   // Compute Tilt
 
-  float avgSlopeY = 0;
-  avgSlopeY += (centerH - heightNeighbors[0]);
-  avgSlopeY += (heightNeighbors[3] - centerH);
-  avgSlopeY *= 0.5f;
+  float avgDeltaY = 0;
+  avgDeltaY += (centerH - heightNeighbors[0]);
+  avgDeltaY += (heightNeighbors[3] - centerH);
+  avgDeltaY *= 0.5f;
 
-  float avgSlopeX = 0;
-  avgSlopeX += (centerH - heightNeighbors[1]);
-  avgSlopeX += (heightNeighbors[2] * centerH);
-  avgSlopeX *= 0.5f;
+  float avgDeltaX = 0;
+  avgDeltaX += (centerH - heightNeighbors[1]);
+  avgDeltaX += (heightNeighbors[2] - centerH);
+  avgDeltaX *= 0.5f;
 
-  float a = avgSlopeX * avgSlopeX;
-  float b = avgSlopeY * avgSlopeY;
+  float a = avgDeltaX * avgDeltaX;
+  float b = avgDeltaY * avgDeltaY;
 
-  mTilt[ToIndex(x, y)] = std::sqrt(a + b) / std::sqrt(1 + a + b);
+  auto abSum = a + b;
+
+  mTilt[ToIndex(x, y)] = std::sqrt(abSum) / std::sqrt(1 + abSum);
 }
 
 template<typename CarryCapacity,
@@ -320,8 +325,8 @@ TinyErode::TransportSediment(CarryCapacity kC,
       auto xfi = int(xf);
       auto yfi = int(yf);
 
-      auto u = xfi - xf;
-      auto v = yfi - yf;
+      auto u = xf - xfi;
+      auto v = yf - yfi;
 
       std::array<float, 4> s{ { 0, 0, 0, 0 } };
 
@@ -339,12 +344,6 @@ TinyErode::TransportSediment(CarryCapacity kC,
 
       float sx1 = s[0] + (u * (s[1] - s[0]));
       float sx2 = s[2] + (u * (s[3] - s[2]));
-
-      assert(!std::isnan(s[3]));
-      assert(!std::isnan(s[2]));
-
-      assert(!std::isnan(sx1));
-      assert(!std::isnan(sx2));
 
       nextSediment[index] = sx1 + (v * (sx2 - sx1));
     }

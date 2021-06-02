@@ -1,27 +1,24 @@
 cmake_minimum_required(VERSION 3.9.6)
 
-project(erode CXX)
+project(TinyErode CXX)
 
-option(ERODE_TESTS "Whether or not to build the tests." OFF)
+option(TINYERODE_TEST "Whether or not to build the test program." OFF)
+option(TINYERODE_OPENMP "Whether or not to use OpenMP." ON)
 
-find_package(OpenMP)
+if(ERODE_OPENMP)
+  find_package(OpenMP)
+endif(ERODE_OPENMP)
 
 add_library(tiny_erode INTERFACE)
 
 target_include_directories(tiny_erode INTERFACE "${PROJECT_SOURCE_DIR}")
 
-if(OpenMP_FOUND)
+if(TINYERODE_OPENMP AND OpenMP_FOUND)
   target_link_libraries(tiny_erode INTERFACE OpenMP::OpenMP_CXX)
-endif(OpenMP_FOUND)
+endif(TINYERODE_OPENMP AND OpenMP_FOUND)
 
 add_library(TinyErode::TinyErode ALIAS tiny_erode)
 
-add_library(erode INTERFACE)
-
-target_include_directories(erode INTERFACE "${PROJECT_SOURCE_DIR}")
-
-add_library(Erode::Erode ALIAS erode)
-
-if(ERODE_TESTS)
+if(TINYERODE_TEST)
   add_subdirectory(tests)
-endif(ERODE_TESTS)
+endif(TINYERODE_TEST)
