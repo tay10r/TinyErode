@@ -58,10 +58,10 @@ Clamp(float x, float min, float max)
 void
 Rain(std::vector<float>& water, std::mt19937& rng)
 {
-  std::uniform_real_distribution<float> waterDist(0.8, 0.9);
+  std::uniform_real_distribution<float> waterDist(1.0, 0.95);
 
   for (auto& r : water)
-    r += waterDist(rng);
+    r = waterDist(rng);
 }
 
 bool
@@ -90,21 +90,21 @@ main(int argc, char** argv)
 {
   const char* inputPath = "input.png";
 
-  float timeDelta = 0.0125;
+  int stepsPerRain = 256;
 
-  int stepsPerRain = 16;
+  float scale = 200.0f;
 
-  float scale = 1.0f;
+  float kErosion = 0.01;
 
-  float kErosion = 0.05;
-
-  float kDeposition = 0.05;
+  float kDeposition = 0.01;
 
   float kCapacity = 0.1;
 
-  float kEvaporation = 1.0f / (stepsPerRain * timeDelta);
+  float kEvaporation = 1.0;
 
-  int iterations = 16;
+  float timeStep = 0.0125;
+
+  int rainfalls = 2;
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--log-water") == 0) {
@@ -132,7 +132,16 @@ main(int argc, char** argv)
                              &kEvaporation)) {
       i++;
       continue;
-    } else if (ParseIntOpt("--iterations", argv[i], argv[i + 1], &iterations)) {
+    } else if (ParseFloatOpt("--time-step", argv[i], argv[i + 1], &timeStep)) {
+      i++;
+      continue;
+    } else if (ParseIntOpt("--rainfalls", argv[i], argv[i + 1], &rainfalls)) {
+      i++;
+      continue;
+    } else if (ParseIntOpt("--steps-per-rainfall",
+                           argv[i],
+                           argv[i + 1],
+                           &stepsPerRain)) {
       i++;
       continue;
     } else if (argv[i][0] == '-') {
@@ -163,8 +172,6 @@ main(int argc, char** argv)
 
   double totalTime = 0;
 
-  TinyErode tinyErode(w, h);
-
   auto getWater = [&water, w](int x, int y) -> float {
     return water[(w * y) + x];
   };
@@ -190,14 +197,22 @@ main(int argc, char** argv)
 
   auto evaporation = [kEvaporation](int, int) -> float { return kEvaporation; };
 
-  for (int i = 0; i < iterations; i++) {
+  for (int i = 0; i < rainfalls; i++) {
 
-    std::cout << "Simulating rainfall " << i << " of " << iterations
+    TinyErode tinyErode(w, h);
+
+    tinyErode.SetTimeStep(timeStep);
+
+    std::cout << "Simulating rainfall " << i << " of " << rainfalls
               << std::endl;
 
     Rain(water, rng);
 
     for (int j = 0; j < stepsPerRain; j++) {
+
+      Debugger::GetInstance().LogWater(water, w, h);
+
+      Debugger::GetInstance().LogSediment(tinyErode.GetSediment(), w, h);
 
       auto start = std::chrono::high_resolution_clock::now();
 
@@ -219,14 +234,12 @@ main(int argc, char** argv)
           .count();
 
       totalTime += time_delta;
-
-      Debugger::GetInstance().LogWater(water, w, h);
-
-      Debugger::GetInstance().LogSediment(tinyErode.GetSediment(), w, h);
     }
+
+    tinyErode.TerminateRainfall(addHeight);
   }
 
-  std::cout << "Seconds per rainfall: " << totalTime / iterations << std::endl;
+  std::cout << "Seconds per rainfall: " << totalTime / rainfalls << std::endl;
 
   Normalize(heightMap);
 

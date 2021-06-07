@@ -13,6 +13,10 @@ class TinyErode final
 public:
   TinyErode(int w = 0, int h = 0);
 
+  void SetTimeStep(float timeStep) noexcept { mTimeStep = timeStep; }
+
+  float GetTimeStep() const noexcept { return mTimeStep; }
+
   int GetWidth() const noexcept { return mSize[0]; }
 
   int GetHeight() const noexcept { return mSize[1]; }
@@ -77,6 +81,10 @@ public:
   ///              level does not become negative at this step.
   template<typename WaterAdder, typename Evaporation>
   void Evaporate(WaterAdder water, Evaporation kEvap);
+
+  /// Deposites all currently suspended sediment into the terrain.
+  template<typename HeightAdder>
+  void TerminateRainfall(HeightAdder heightAdder);
 
   void Resize(int w, int h);
 
@@ -189,8 +197,8 @@ TinyErode::TransportWaterAt(WaterAdder& water, int x, int y)
 
   // Compute Water Velocity
 
-  float dx = 0.5f * ((inflow[2] - flow[1]) + (flow[2] - inflow[1]));
-  float dy = 0.5f * ((inflow[0] - flow[0]) + (flow[3] - inflow[3]));
+  float dx = 0.5f * ((inflow[1] - flow[1]) + (flow[2] - inflow[2]));
+  float dy = 0.5f * ((flow[0] - inflow[0]) + (inflow[3] - flow[3]));
 
   float avgWaterLevel = waterLevel - (waterDelta * 0.5f);
 
@@ -262,10 +270,19 @@ TinyErode::ComputeFlowAndTiltAt(const Height& height,
     center[i] = std::max(0.0f, center[i] + c);
   }
 
-  auto k = GetScalingFactor(center, centerW);
+  float pipeLengthX = 1;
+  float pipeLengthY = 1;
 
-  for (auto& n : center)
-    n *= k;
+  float totalOutputVolume =
+    std::accumulate(center.begin(), center.end(), 0.0f) * mTimeStep;
+
+  if (totalOutputVolume > (centerW * pipeLengthX * pipeLengthY)) {
+
+    auto k = GetScalingFactor(center, centerW);
+
+    for (auto& n : center)
+      n *= k;
+  }
 
   // Compute Tilt
 
@@ -320,7 +337,7 @@ TinyErode::TransportSediment(CarryCapacity kC,
 
       auto vel = mVelocity[index];
       auto xf = x - (vel[0] * mTimeStep);
-      auto yf = y - (vel[1] * mTimeStep);
+      auto yf = y + (vel[1] * mTimeStep);
 
       auto xfi = int(xf);
       auto yfi = int(yf);
@@ -350,6 +367,36 @@ TinyErode::TransportSediment(CarryCapacity kC,
   }
 
   mSediment = std::move(nextSediment);
+}
+
+template<typename HeightAdder>
+void
+TinyErode::TerminateRainfall(HeightAdder heightAdder)
+{
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+
+  for (int y = 0; y < GetHeight(); y++) {
+
+    for (int x = 0; x < GetWidth(); x++) {
+
+      auto index = ToIndex(x, y);
+
+      float sediment = mSediment[index];
+
+      float pipeLengthX = 1;
+
+      float pipeLengthY = 1;
+
+      heightAdder(x, y, sediment / (pipeLengthX * pipeLengthY));
+
+      mSediment[index] = 0;
+
+      mVelocity[index][0] = 0;
+      mVelocity[index][1] = 0;
+    }
+  }
 }
 
 template<typename CarryCapacity,
