@@ -1,3 +1,17 @@
+// SPDX-License-Identifier: MIT
+//   _______ _             ______               _
+//  |__   __(_)           |  ____|             | |
+//     | |   _ _ __  _   _| |__   _ __ ___   __| | ___
+//     | |  | | '_ \| | | |  __| | '__/ _ \ / _` |/ _ \
+//     | |  | | | | | |_| | |____| | | (_) | (_| |  __/
+//     |_|  |_|_| |_|\__, |______|_|  \___/ \__,_|\___|
+//                    __/ |
+//                   |___/
+//
+// Copyright (C) 2021 Taylor Holberton
+//
+// A C++ library for simulating erosion.
+
 #pragma once
 
 #ifndef TINYERODE_H_INCLUDED
