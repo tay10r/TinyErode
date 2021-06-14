@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef TINYERODE_H_INCLUDED
+#define TINYERODE_H_INCLUDED
+
 #include <algorithm>
 #include <array>
 #include <numeric>
@@ -8,10 +11,17 @@
 #include <cassert>
 #include <cmath>
 
-class TinyErode final
+namespace TinyErode {
+
+/// Used for simulating a rainfall event on a terrain.
+/// Stores information on the terrain that is required to simulate the effect of
+/// hydraulic erosion.
+///
+/// @note The class should only be used once per rainfall event.
+class Simulation final
 {
 public:
-  TinyErode(int w = 0, int h = 0);
+  Simulation(int w = 0, int h = 0);
 
   void SetTimeStep(float timeStep) noexcept { mTimeStep = timeStep; }
 
@@ -34,7 +44,7 @@ public:
   template<typename Height, typename Water>
   void ComputeFlowAndTilt(const Height& height, const Water& water);
 
-  /// This function is called after @ref TinyErode::ComputeFlow in order to
+  /// This function is called after @ref Simulation::ComputeFlow in order to
   /// determine where the water at each cell is going to be moving.
   ///
   /// @param waterAdder A function taking an x and y coordinate as well as a
@@ -94,6 +104,16 @@ public:
     return mSediment;
   }
 
+  void SetMetersPerX(float metersPerX) noexcept
+  {
+    mPipeLengths[0] = metersPerX;
+  }
+
+  void SetMetersPerY(float metersPerY) noexcept
+  {
+    mPipeLengths[1] = metersPerY;
+  }
+
 private:
   using Velocity = std::array<float, 2>;
 
@@ -142,6 +162,8 @@ private:
 
   float mGravity = 9.8;
 
+  std::array<float, 2> mPipeLengths{ 1, 1 };
+
   std::array<int, 2> mSize{ 0, 0 };
 
   std::vector<Flow> mFlow;
@@ -155,14 +177,14 @@ private:
 
 // Implementation details beyond this point.
 
-inline TinyErode::TinyErode(int w, int h)
+inline Simulation::Simulation(int w, int h)
 {
   Resize(w, h);
 }
 
 template<typename WaterAdder>
 void
-TinyErode::TransportWater(WaterAdder water)
+Simulation::TransportWater(WaterAdder water)
 {
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -177,7 +199,7 @@ TinyErode::TransportWater(WaterAdder water)
 
 template<typename WaterAdder>
 void
-TinyErode::TransportWaterAt(WaterAdder& water, int x, int y)
+Simulation::TransportWaterAt(WaterAdder& water, int x, int y)
 {
   auto& flow = GetFlow(x, y);
 
@@ -189,9 +211,7 @@ TinyErode::TransportWaterAt(WaterAdder& water, int x, int y)
 
   auto volumeDelta = (inflowSum - outflowSum) * mTimeStep;
 
-  auto pipeLength = 1.0f;
-
-  auto waterDelta = volumeDelta / (pipeLength * pipeLength);
+  auto waterDelta = volumeDelta / (mPipeLengths[0] * mPipeLengths[1]);
 
   float waterLevel = water(x, y, waterDelta);
 
@@ -205,8 +225,8 @@ TinyErode::TransportWaterAt(WaterAdder& water, int x, int y)
   Velocity velocity{ { 0, 0 } };
 
   if (avgWaterLevel != 0.0f) {
-    velocity[0] = dx / (pipeLength * avgWaterLevel);
-    velocity[1] = dy / (pipeLength * avgWaterLevel);
+    velocity[0] = dx / (mPipeLengths[0] * avgWaterLevel);
+    velocity[1] = dy / (mPipeLengths[1] * avgWaterLevel);
   }
 
   mVelocity[ToIndex(x, y)] = velocity;
@@ -214,7 +234,7 @@ TinyErode::TransportWaterAt(WaterAdder& water, int x, int y)
 
 template<typename Height, typename Water>
 void
-TinyErode::ComputeFlowAndTilt(const Height& height, const Water& water)
+Simulation::ComputeFlowAndTilt(const Height& height, const Water& water)
 {
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -228,10 +248,10 @@ TinyErode::ComputeFlowAndTilt(const Height& height, const Water& water)
 
 template<typename Height, typename Water>
 void
-TinyErode::ComputeFlowAndTiltAt(const Height& height,
-                                const Water& water,
-                                int x,
-                                int y)
+Simulation::ComputeFlowAndTiltAt(const Height& height,
+                                 const Water& water,
+                                 int x,
+                                 int y)
 {
   auto& center = GetFlow(x, y);
 
@@ -242,6 +262,8 @@ TinyErode::ComputeFlowAndTiltAt(const Height& height,
   auto centerW = water(x, y);
 
   std::array<float, 4> heightNeighbors{ centerH, centerH, centerH, centerH };
+
+  std::array<int, 4> pipeLengthIndices{ { 1, 0, 0, 1 } };
 
   for (int i = 0; i < 4; i++) {
 
@@ -263,20 +285,17 @@ TinyErode::ComputeFlowAndTiltAt(const Height& height,
     float area = 1;
 
     // Length of the virtual pipe.
-    float pipeLength = 1;
+    float pipeLength = mPipeLengths[pipeLengthIndices[i]];
 
     auto c = mTimeStep * area * (mGravity * heightDiff) / pipeLength;
 
     center[i] = std::max(0.0f, center[i] + c);
   }
 
-  float pipeLengthX = 1;
-  float pipeLengthY = 1;
-
   float totalOutputVolume =
     std::accumulate(center.begin(), center.end(), 0.0f) * mTimeStep;
 
-  if (totalOutputVolume > (centerW * pipeLengthX * pipeLengthY)) {
+  if (totalOutputVolume > (centerW * mPipeLengths[0] * mPipeLengths[1])) {
 
     auto k = GetScalingFactor(center, centerW);
 
@@ -309,10 +328,10 @@ template<typename CarryCapacity,
          typename Erosion,
          typename HeightAdder>
 void
-TinyErode::TransportSediment(CarryCapacity kC,
-                             Deposition kD,
-                             Erosion kE,
-                             HeightAdder heightAdder)
+Simulation::TransportSediment(CarryCapacity kC,
+                              Deposition kD,
+                              Erosion kE,
+                              HeightAdder heightAdder)
 {
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -371,7 +390,7 @@ TinyErode::TransportSediment(CarryCapacity kC,
 
 template<typename HeightAdder>
 void
-TinyErode::TerminateRainfall(HeightAdder heightAdder)
+Simulation::TerminateRainfall(HeightAdder heightAdder)
 {
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -385,11 +404,7 @@ TinyErode::TerminateRainfall(HeightAdder heightAdder)
 
       float sediment = mSediment[index];
 
-      float pipeLengthX = 1;
-
-      float pipeLengthY = 1;
-
-      heightAdder(x, y, sediment / (pipeLengthX * pipeLengthY));
+      heightAdder(x, y, sediment / (mPipeLengths[0] * mPipeLengths[1]));
 
       mSediment[index] = 0;
 
@@ -404,12 +419,12 @@ template<typename CarryCapacity,
          typename Erosion,
          typename HeightAdder>
 void
-TinyErode::ErodeAndDeposit(CarryCapacity& kC,
-                           Deposition& kD,
-                           Erosion& kE,
-                           HeightAdder& heightAdder,
-                           int x,
-                           int y)
+Simulation::ErodeAndDeposit(CarryCapacity& kC,
+                            Deposition& kD,
+                            Erosion& kE,
+                            HeightAdder& heightAdder,
+                            int x,
+                            int y)
 {
   auto vel = mVelocity[ToIndex(x, y)];
 
@@ -417,7 +432,7 @@ TinyErode::ErodeAndDeposit(CarryCapacity& kC,
 
   float tiltAngle = mTilt[ToIndex(x, y)];
 
-  float capacity = kC(x, y) * tiltAngle * velocityMagnitude;
+  float capacity = kC(x, y) * std::max(0.01f, tiltAngle) * velocityMagnitude;
 
   float sediment = mSediment[ToIndex(x, y)];
 
@@ -430,7 +445,7 @@ TinyErode::ErodeAndDeposit(CarryCapacity& kC,
 
 template<typename WaterAdder, typename Evaporation>
 void
-TinyErode::Evaporate(WaterAdder water, Evaporation kEvap)
+Simulation::Evaporate(WaterAdder water, Evaporation kEvap)
 {
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -443,7 +458,7 @@ TinyErode::Evaporate(WaterAdder water, Evaporation kEvap)
 }
 
 inline auto
-TinyErode::GetInflow(int centerX, int centerY) const noexcept -> Flow
+Simulation::GetInflow(int centerX, int centerY) const noexcept -> Flow
 {
   std::array<int, 4> xDeltas{ { 0, -1, 1, 0 } };
   std::array<int, 4> yDeltas{ { -1, 0, 0, 1 } };
@@ -463,20 +478,19 @@ TinyErode::GetInflow(int centerX, int centerY) const noexcept -> Flow
 }
 
 inline float
-TinyErode::GetScalingFactor(const Flow& flow, float waterLevel) noexcept
+Simulation::GetScalingFactor(const Flow& flow, float waterLevel) noexcept
 {
   auto volume = std::accumulate(flow.begin(), flow.end(), 0.0f) * mTimeStep;
 
   if (volume == 0.0f)
     return 1.0f;
 
-  float pipeLength = 1;
-
-  return std::min(1.0f, (waterLevel * pipeLength * pipeLength) / volume);
+  return std::min(1.0f,
+                  (waterLevel * mPipeLengths[0] * mPipeLengths[1]) / volume);
 }
 
 inline void
-TinyErode::Resize(int w, int h)
+Simulation::Resize(int w, int h)
 {
   assert(w >= 0);
   assert(h >= 0);
@@ -495,3 +509,7 @@ TinyErode::Resize(int w, int h)
   mSize[0] = w;
   mSize[1] = h;
 }
+
+} // namespace TinyErode
+
+#endif // TINYERODE_H_INCLUDED

@@ -58,10 +58,27 @@ Clamp(float x, float min, float max)
 void
 Rain(std::vector<float>& water, std::mt19937& rng)
 {
-  std::uniform_real_distribution<float> waterDist(1.0, 0.95);
+#if 1
+  float delta = 0.05;
+
+  float center = 1.0;
+
+  float min = center - (center * delta);
+  float max = center + (center * delta);
+
+  std::uniform_real_distribution<float> waterDist(min, max);
 
   for (auto& r : water)
     r = waterDist(rng);
+#else
+  for (auto& w : water)
+    w = 0;
+
+  std::uniform_int_distribution<int> indexDist(0, water.size() - 1);
+
+  for (int i = 0; i < 128; i++)
+    water[indexDist(rng)] += 1;
+#endif
 }
 
 bool
@@ -92,26 +109,34 @@ main(int argc, char** argv)
 
   int stepsPerRain = 256;
 
-  float scale = 200.0f;
+  float minHeight = 0;
 
-  float kErosion = 0.01;
+  float heightRange = 200.0f;
 
-  float kDeposition = 0.01;
+  float kErosion = 0.005;
 
-  float kCapacity = 0.1;
+  float kDeposition = 0.010;
 
-  float kEvaporation = 1.0;
+  float kCapacity = 0.01;
+
+  float kEvaporation = 0.1;
+
+  float xRange = 500;
+  float yRange = 500;
 
   float timeStep = 0.0125;
 
-  int rainfalls = 2;
+  int rainfalls = 1;
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--log-water") == 0) {
       Debugger::GetInstance().EnableWaterLog();
     } else if (strcmp(argv[i], "--log-sediment") == 0) {
       Debugger::GetInstance().EnableSedimentLog();
-    } else if (ParseFloatOpt("--scale", argv[i], argv[i + 1], &scale)) {
+    } else if (ParseFloatOpt("--height-range",
+                             argv[i],
+                             argv[i + 1],
+                             &heightRange)) {
       i++;
       continue;
     } else if (ParseFloatOpt("--erosion", argv[i], argv[i + 1], &kErosion)) {
@@ -162,7 +187,7 @@ main(int argc, char** argv)
   }
 
   for (auto& value : heightMap)
-    value *= scale;
+    value = minHeight + (value * heightRange);
 
   std::vector<float> water(w * h);
 
@@ -199,9 +224,11 @@ main(int argc, char** argv)
 
   for (int i = 0; i < rainfalls; i++) {
 
-    TinyErode tinyErode(w, h);
+    TinyErode::Simulation simulation(w, h);
 
-    tinyErode.SetTimeStep(timeStep);
+    simulation.SetTimeStep(timeStep);
+    simulation.SetMetersPerX(xRange / w);
+    simulation.SetMetersPerY(yRange / h);
 
     std::cout << "Simulating rainfall " << i << " of " << rainfalls
               << std::endl;
@@ -212,20 +239,20 @@ main(int argc, char** argv)
 
       Debugger::GetInstance().LogWater(water, w, h);
 
-      Debugger::GetInstance().LogSediment(tinyErode.GetSediment(), w, h);
+      Debugger::GetInstance().LogSediment(simulation.GetSediment(), w, h);
 
       auto start = std::chrono::high_resolution_clock::now();
 
-      tinyErode.ComputeFlowAndTilt(getHeight, getWater);
+      simulation.ComputeFlowAndTilt(getHeight, getWater);
 
-      tinyErode.TransportWater(addWater);
+      simulation.TransportWater(addWater);
 
-      tinyErode.TransportSediment(carryCapacity,
-                                  deposition,
-                                  erosion,
-                                  addHeight);
+      simulation.TransportSediment(carryCapacity,
+                                   deposition,
+                                   erosion,
+                                   addHeight);
 
-      tinyErode.Evaporate(addWater, evaporation);
+      simulation.Evaporate(addWater, evaporation);
 
       auto stop = std::chrono::high_resolution_clock::now();
 
@@ -236,10 +263,11 @@ main(int argc, char** argv)
       totalTime += time_delta;
     }
 
-    tinyErode.TerminateRainfall(addHeight);
+    simulation.TerminateRainfall(addHeight);
   }
 
-  std::cout << "Seconds per rainfall: " << totalTime / rainfalls << std::endl;
+  std::cout << "Seconds per iteration: "
+            << totalTime / (rainfalls * stepsPerRain) << std::endl;
 
   Normalize(heightMap);
 

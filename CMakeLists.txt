@@ -4,6 +4,7 @@ project(TinyErode CXX)
 
 option(TINYERODE_TEST "Whether or not to build the test program." OFF)
 option(TINYERODE_OPENMP "Whether or not to use OpenMP." ON)
+option(TINYERODE_EXAMPLE "Whether or not to build the example program." OFF)
 
 if(TINYERODE_OPENMP)
   find_package(OpenMP)
@@ -18,6 +19,10 @@ if(TINYERODE_OPENMP AND OpenMP_FOUND)
 endif(TINYERODE_OPENMP AND OpenMP_FOUND)
 
 add_library(TinyErode::TinyErode ALIAS tinyerode)
+
+if(TINYERODE_EXAMPLE)
+  add_subdirectory(example)
+endif(TINYERODE_EXAMPLE)
 
 if(TINYERODE_TEST)
   add_subdirectory(test)
