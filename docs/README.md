@@ -98,7 +98,7 @@ defined.
 
 The functions look like this:
 
-```
+```cpp
 auto carryCapacity = [](int x, int y) -> float {
   return 0.1;
 };
