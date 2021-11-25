@@ -10,6 +10,8 @@ add_executable(tinyerode_viewer
   main.cpp
   Terrain.h
   Terrain.cpp
+  NoiseFilter.h
+  NoiseFilter.cpp
   OpenGLTexture2D.h
   OpenGLTexture2D.cpp
   OpenGLShader.h
