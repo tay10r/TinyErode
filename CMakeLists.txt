@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.9.6)
 
-project(TinyErode CXX)
+project(TinyErode CXX C)
 
 option(TINYERODE_TEST "Whether or not to build the test program." OFF)
 option(TINYERODE_OPENMP "Whether or not to use OpenMP." ON)

@@ -4,13 +4,27 @@ find_package(glfw3 REQUIRED)
 
 add_subdirectory(imgui)
 add_subdirectory(glad)
+add_subdirectory(stb)
 
 add_executable(tinyerode_viewer
-  main.cpp)
+  main.cpp
+  Terrain.h
+  Terrain.cpp
+  OpenGLTexture2D.h
+  OpenGLTexture2D.cpp
+  OpenGLShader.h
+  OpenGLShaderProgram.h
+  OpenGLShaderProgram.cpp)
 
 target_compile_definitions(tinyerode_viewer PRIVATE GLFW_INCLUDE_NONE=1)
 
-target_link_libraries(tinyerode_viewer PRIVATE TinyErode::TinyErode glfw TinyErode::ImGui TinyErode::Glad)
+target_link_libraries(tinyerode_viewer
+  PRIVATE
+    TinyErode::TinyErode
+    glfw
+    TinyErode::ImGui
+    TinyErode::Glad
+    TinyErode::STB)
 
 set_target_properties(tinyerode_viewer
   PROPERTIES
