@@ -12,9 +12,11 @@
 
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include <cstdlib>
 
+#include "FastNoiseLite.h"
 #include "Terrain.h"
 
 namespace {
@@ -27,6 +29,9 @@ updateViewport(GLFWwindow* window)
   glfwGetFramebufferSize(window, &w, &h);
   glViewport(0, 0, w, h);
 }
+
+void
+randomize(FastNoiseLite& noise, Terrain& terrain);
 
 } // namespace
 
@@ -81,15 +86,24 @@ main(int argc, char** argv)
 
   int randomizeSeed = 0;
 
-  float camAzimuth = 0;
-  float camAltitude = glm::radians(45.0f);
-  float camDistance = 1000;
+  FastNoiseLite fastNoiseLite;
+
+  float metersPerPixel = 10;
+
+  float camAzimuth = glm::radians(30.0f);
+  float camAltitude = glm::radians(30.0f);
+  float camDistance = 50;
   float camFov = glm::radians(45.0f);
 
+  float lightX = 1;
+  float lightY = 1;
+  float lightZ = 1;
+
   auto getCamPosition = [&camAzimuth, &camAltitude, &camDistance]() -> glm::vec3 {
-    const float x = camDistance * std::cos(camAzimuth) * std::sin(camAltitude);
-    const float y = camDistance * std::sin(camAzimuth) * std::sin(camAltitude);
-    const float z = camDistance * std::cos(camAltitude);
+    const float altitude = glm::radians(90.0f) - camAltitude;
+    const float x = camDistance * std::cos(camAzimuth) * std::sin(altitude);
+    const float y = camDistance * std::sin(camAzimuth) * std::sin(altitude);
+    const float z = camDistance * std::cos(altitude);
     return glm::vec3(y, z, -x);
   };
 
@@ -109,7 +123,7 @@ main(int argc, char** argv)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (terrain)
-      terrain->render(mvp);
+      terrain->render(mvp, metersPerPixel, glm::vec3(lightX, lightY, lightZ));
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -129,16 +143,20 @@ main(int argc, char** argv)
 
     ImGui::Separator();
 
-    ImGui::SliderInt("Randomize Seed", &randomizeSeed, 0, 0x3fffffff);
-
-    if (ImGui::Button("Randomize")) {
-      // TODO
-    }
+    ImGui::SliderFloat("Meters per Pixel", &metersPerPixel, 0.01, 100.0);
 
     ImGui::Separator();
 
-    ImGui::SliderFloat("Camera Azimuth", &camAzimuth, 0.0f, glm::radians(180.0f));
-    ImGui::SliderFloat("Camera Altitude", &camAltitude, 0.0f, glm::radians(90.0f));
+    if (ImGui::SliderInt("Randomize Seed", &randomizeSeed, 0, 0x3fffffff))
+      fastNoiseLite.SetSeed(randomizeSeed);
+
+    if (ImGui::Button("Randomize") && terrain)
+      randomize(fastNoiseLite, *terrain);
+
+    ImGui::Separator();
+
+    ImGui::SliderFloat("Camera Azimuth", &camAzimuth, 0.01f, glm::radians(180.0f));
+    ImGui::SliderFloat("Camera Altitude", &camAltitude, 0.01f, glm::radians(90.0f));
     ImGui::SliderFloat("Camera Distance", &camDistance, near, far);
     ImGui::SliderFloat("Camera FOV", &camFov, glm::radians(10.0f), glm::radians(90.0f));
 
@@ -163,3 +181,26 @@ main(int argc, char** argv)
 
   return EXIT_SUCCESS;
 }
+
+namespace {
+
+void
+randomize(FastNoiseLite& noise, Terrain& terrain)
+{
+  const int w = terrain.width();
+  const int h = terrain.height();
+
+  std::vector<float> heightMap(w * h, 0.0f);
+
+  for (int i = 0; i < (w * h); i++) {
+
+    const int x = i % w;
+    const int y = i / w;
+
+    heightMap[i] = noise.GetNoise(float(x), float(y));
+  }
+
+  terrain.setHeightMap(heightMap.data(), w, h);
+}
+
+} // namespace

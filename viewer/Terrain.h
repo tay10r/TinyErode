@@ -4,6 +4,8 @@
 #include "OpenGLTexture2D.h"
 #include "OpenGLVertexBuffer.h"
 
+#include <glm/vec3.hpp>
+
 class Terrain final
 {
 public:
@@ -17,7 +19,7 @@ public:
 
   void setHeightMap(const float* height, int w, int h);
 
-  void render(const glm::mat4& mvp);
+  void render(const glm::mat4& mvp, float metersPerPixel, const glm::vec3& lightDir);
 
 private:
   OpenGLShaderProgram m_terrainProgram;

@@ -66,6 +66,13 @@ public:
 
   bool isBound() const { return m_boundFlag; }
 
+  void setUniformValue(const char* name, float value)
+  {
+    assert(m_boundFlag);
+
+    glUniform1f(getUniformLocation(name), value);
+  }
+
   void setUniformValue(const char* name, const glm::vec3& value)
   {
     assert(m_boundFlag);
