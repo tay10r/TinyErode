@@ -17,6 +17,7 @@
 #include <cstdlib>
 
 #include "NoiseFilter.h"
+#include "Renderer.h"
 #include "Terrain.h"
 
 namespace {
@@ -30,50 +31,15 @@ updateViewport(GLFWwindow* window)
   glViewport(0, 0, w, h);
 }
 
-} // namespace
-
 int
-main(int argc, char** argv)
+mainLoop(GLFWwindow* window)
 {
-  if (glfwInit() != GLFW_TRUE) {
-    std::cerr << "Failed to initialize GLFW." << std::endl;
+  Renderer renderer;
+
+  if (!renderer.compileShaders(std::cerr))
     return EXIT_FAILURE;
-  }
-
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
-  glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
-
-  GLFWwindow* window = glfwCreateWindow(1280, 720, "TinyErode Viewer", nullptr, nullptr);
-  if (!window) {
-    std::cerr << "Failed to initialize GLFW." << std::endl;
-    glfwTerminate();
-    return EXIT_FAILURE;
-  }
-
-  glfwMakeContextCurrent(window);
-
-  gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress);
-
-  glfwSwapInterval(1);
-
-  glEnable(GL_DEPTH_TEST);
-
-  glClearColor(0, 0, 0, 1);
-
-  updateViewport(window);
 
   std::unique_ptr<Terrain> terrain;
-
-  IMGUI_CHECKVERSION();
-
-  ImGui::CreateContext();
-
-  ImGui_ImplGlfw_InitForOpenGL(window, true);
-
-  ImGui_ImplOpenGL3_Init("#version 300 es");
 
   const float near = 0.1;
   const float far = 5000;
@@ -117,8 +83,14 @@ main(int argc, char** argv)
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    renderer.setMVP(mvp);
+
+    renderer.setLightDir(glm::vec3(lightX, lightY, lightZ));
+
+    renderer.setMetersPerPixel(metersPerPixel);
+
     if (terrain)
-      terrain->render(mvp, metersPerPixel, glm::vec3(lightX, lightY, lightZ));
+      renderer.render(*terrain);
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -129,12 +101,8 @@ main(int argc, char** argv)
     ImGui::SliderInt("Terrain Width", &genTerrainWidth, 1, 4095);
     ImGui::SliderInt("Terrain Height", &genTerrainHeight, 1, 4095);
 
-    if (ImGui::Button("Generate Initial Terrain")) {
-
+    if (ImGui::Button("Generate Initial Terrain"))
       terrain.reset(new Terrain(genTerrainWidth, genTerrainHeight));
-
-      terrain->compileShaders(std::cerr);
-    }
 
     ImGui::Separator();
 
@@ -162,6 +130,54 @@ main(int argc, char** argv)
 
     glfwSwapBuffers(window);
   }
+
+  return true;
+}
+
+} // namespace
+
+int
+main(int argc, char** argv)
+{
+  if (glfwInit() != GLFW_TRUE) {
+    std::cerr << "Failed to initialize GLFW." << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
+  glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+
+  GLFWwindow* window = glfwCreateWindow(1280, 720, "TinyErode Viewer", nullptr, nullptr);
+  if (!window) {
+    std::cerr << "Failed to initialize GLFW." << std::endl;
+    glfwTerminate();
+    return EXIT_FAILURE;
+  }
+
+  glfwMakeContextCurrent(window);
+
+  gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress);
+
+  glfwSwapInterval(1);
+
+  glEnable(GL_DEPTH_TEST);
+
+  glClearColor(0, 0, 0, 1);
+
+  updateViewport(window);
+
+  IMGUI_CHECKVERSION();
+
+  ImGui::CreateContext();
+
+  ImGui_ImplGlfw_InitForOpenGL(window, true);
+
+  ImGui_ImplOpenGL3_Init("#version 300 es");
+
+  mainLoop(window);
 
   glDisable(GL_DEPTH_TEST);
 
