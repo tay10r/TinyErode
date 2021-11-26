@@ -174,6 +174,9 @@ class NoiseFilterImpl final
   BlendMode blendMode = BlendMode::Replace;
 
   void generateNoise(Terrain& terrain);
+
+  template<typename BlendFunc>
+  static void blend(const float* a, const float* b, float* c, int size, BlendFunc);
 };
 
 NoiseFilter::NoiseFilter()
@@ -204,25 +207,55 @@ NoiseFilterImpl::generateNoise(Terrain& terrain)
   const int w = terrain.width();
   const int h = terrain.height();
 
-  std::vector<float> heightMap(w * h, 0.0f);
+  std::vector<float> noise(w * h, 0.0f);
 
-  FastNoiseLite noise;
+  FastNoiseLite fastNoiseLite;
 
-  noise.SetSeed(seed);
+  fastNoiseLite.SetSeed(seed);
 
-  noise.SetNoiseType(noiseType);
+  fastNoiseLite.SetNoiseType(noiseType);
 
   for (int i = 0; i < (w * h); i++) {
 
     const int x = i % w;
     const int y = i / w;
 
-    heightMap[i] = noise.GetNoise(float(x), float(y));
+    noise[i] = fastNoiseLite.GetNoise(float(x), float(y));
   }
+
+  if (blendMode == BlendMode::Replace) {
+    terrain.setHeightMap(noise.data(), w, h);
+    return;
+  }
+
+  std::vector<float> dstBuffer(w * h, 0.0f);
+
+  const float* src = terrain.getHeightMapBuffer();
+  const float* tmp = noise.data();
+  float* dst = dstBuffer.data();
 
   switch (blendMode) {
     case BlendMode::Replace:
-      terrain.setHeightMap(heightMap.data(), w, h);
+      /* Already done. */
+      break;
+    case BlendMode::Multiply:
+      blend(src, tmp, dst, w * h, [](float a, float b) -> float { return a * b; });
+      break;
+    case BlendMode::Add:
+      blend(src, tmp, dst, w * h, [](float a, float b) -> float { return a + b; });
+      break;
+    case BlendMode::Subtract:
+      blend(src, tmp, dst, w * h, [](float a, float b) -> float { return a - b; });
       break;
   }
+
+  terrain.setHeightMap(dst, w, h);
+}
+
+template<typename BlendFunc>
+void
+NoiseFilterImpl::blend(const float* a, const float* b, float* dst, int size, BlendFunc blendFunc)
+{
+  for (int i = 0; i < size; i++)
+    dst[i] = blendFunc(a[i], b[i]);
 }

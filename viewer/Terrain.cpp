@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <cassert>
+#include <cstring>
 
 namespace {} // namespace
 
@@ -60,6 +61,10 @@ Terrain::setHeightMap(const float* height, int w, int h)
 {
   assert(w == m_width);
   assert(h == m_height);
+
+  m_heightMapBuffer.resize(w * h);
+
+  std::memcpy(m_heightMapBuffer.data(), height, w * h * sizeof(float));
 
   const GLint level = 0;
   const GLint x = 0;

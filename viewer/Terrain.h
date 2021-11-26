@@ -6,6 +6,8 @@
 
 #include <glm/vec3.hpp>
 
+#include <vector>
+
 class Terrain final
 {
 public:
@@ -17,6 +19,8 @@ public:
 
   void setHeightMap(const float* height, int w, int h);
 
+  const float* getHeightMapBuffer() const noexcept { return m_heightMapBuffer.data(); }
+
   void draw();
 
 private:
@@ -25,6 +29,8 @@ private:
   OpenGLTexture2D m_heightMap;
 
   OpenGLTexture2D m_waterMap;
+
+  std::vector<float> m_heightMapBuffer;
 
   int m_width = 0;
 
