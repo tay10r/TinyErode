@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 
+#include "ErosionFilter.h"
 #include "NoiseFilter.h"
 #include "Renderer.h"
 #include "Terrain.h"
@@ -47,13 +48,13 @@ mainLoop(GLFWwindow* window)
   int genTerrainWidth = 1023;
   int genTerrainHeight = 1023;
 
-  NoiseFilter noiseFilter;
+  ErosionFilter erosionFilter;
 
-  float metersPerPixel = 10;
+  NoiseFilter noiseFilter;
 
   float camAzimuth = glm::radians(30.0f);
   float camAltitude = glm::radians(30.0f);
-  float camDistance = 50;
+  float camDistance = 350;
   float camFov = glm::radians(45.0f);
 
   float lightX = 1;
@@ -83,14 +84,21 @@ mainLoop(GLFWwindow* window)
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    renderer.setMVP(mvp);
+    if (terrain && erosionFilter.inErodeState())
+      erosionFilter.erode(*terrain);
 
-    renderer.setLightDir(glm::vec3(lightX, lightY, lightZ));
+    if (terrain) {
+      renderer.setMVP(mvp);
 
-    renderer.setMetersPerPixel(metersPerPixel);
+      renderer.setLightDir(glm::vec3(lightX, lightY, lightZ));
 
-    if (terrain)
+      renderer.setMetersPerPixel(terrain->metersPerPixel());
+
       renderer.render(*terrain);
+
+      if (erosionFilter.inErodeState())
+        renderer.renderWater(*terrain);
+    }
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -98,29 +106,46 @@ mainLoop(GLFWwindow* window)
 
     ImGui::Begin("Options");
 
-    ImGui::SliderInt("Terrain Width", &genTerrainWidth, 1, 4095);
-    ImGui::SliderInt("Terrain Height", &genTerrainHeight, 1, 4095);
+    ImGui::BeginTabBar("Option Tabs");
 
-    if (ImGui::Button("Generate Initial Terrain"))
-      terrain.reset(new Terrain(genTerrainWidth, genTerrainHeight));
+    if (ImGui::BeginTabItem("Setup")) {
 
-    ImGui::Separator();
+      ImGui::SliderInt("Terrain Width", &genTerrainWidth, 1, 4095);
+      ImGui::SliderInt("Terrain Height", &genTerrainHeight, 1, 4095);
 
-    ImGui::SliderFloat("Meters per Pixel", &metersPerPixel, 0.01, 100.0);
+      if (ImGui::Button("Generate Initial Terrain"))
+        terrain.reset(new Terrain(genTerrainWidth, genTerrainHeight));
 
-    if (terrain) {
+      if (terrain) {
+        ImGui::Separator();
 
-      ImGui::Separator();
+        float metersPerPixel = terrain->metersPerPixel();
+        ImGui::SliderFloat("Meters per Pixel", &metersPerPixel, 0.01, 10.0);
+        terrain->setMetersPerPixel(metersPerPixel);
+      }
 
-      noiseFilter.renderGui(*terrain);
+      ImGui::EndTabItem();
     }
 
-    ImGui::Separator();
+    if (ImGui::BeginTabItem("Camera")) {
+      ImGui::SliderFloat("Camera Azimuth", &camAzimuth, 0.01f, glm::radians(180.0f));
+      ImGui::SliderFloat("Camera Altitude", &camAltitude, 0.01f, glm::radians(90.0f));
+      ImGui::SliderFloat("Camera Distance", &camDistance, near, far);
+      ImGui::SliderFloat("Camera FOV", &camFov, glm::radians(10.0f), glm::radians(90.0f));
+      ImGui::EndTabItem();
+    }
 
-    ImGui::SliderFloat("Camera Azimuth", &camAzimuth, 0.01f, glm::radians(180.0f));
-    ImGui::SliderFloat("Camera Altitude", &camAltitude, 0.01f, glm::radians(90.0f));
-    ImGui::SliderFloat("Camera Distance", &camDistance, near, far);
-    ImGui::SliderFloat("Camera FOV", &camFov, glm::radians(10.0f), glm::radians(90.0f));
+    if (terrain && ImGui::BeginTabItem("Noise Filter")) {
+      noiseFilter.renderGui(*terrain);
+      ImGui::EndTabItem();
+    }
+
+    if (terrain && ImGui::BeginTabItem("Erosion Filter")) {
+      erosionFilter.renderGui(*terrain);
+      ImGui::EndTabItem();
+    }
+
+    ImGui::EndTabBar();
 
     ImGui::End();
 
@@ -165,8 +190,10 @@ main(int argc, char** argv)
   glfwSwapInterval(1);
 
   glEnable(GL_DEPTH_TEST);
-
+  glEnable(GL_BLEND);
   glEnable(GL_SAMPLES);
+
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glClearColor(0, 0, 0, 1);
 
@@ -183,7 +210,7 @@ main(int argc, char** argv)
   mainLoop(window);
 
   glDisable(GL_SAMPLES);
-
+  glDisable(GL_BLEND);
   glDisable(GL_DEPTH_TEST);
 
   ImGui_ImplOpenGL3_Shutdown();

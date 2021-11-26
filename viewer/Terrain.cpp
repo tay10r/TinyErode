@@ -5,8 +5,6 @@
 #include <cassert>
 #include <cstring>
 
-namespace {} // namespace
-
 Terrain::Terrain(int w, int h)
   : m_width(w)
   , m_height(h)
@@ -76,14 +74,35 @@ Terrain::setHeightMap(const float* height, int w, int h)
 }
 
 void
+Terrain::setWaterMap(const float* water, int w, int h)
+{
+  assert(w == m_width);
+  assert(h == m_height);
+
+  const GLint level = 0;
+  const GLint x = 0;
+  const GLint y = 0;
+
+  m_waterMap.bind();
+  m_waterMap.write(level, x, y, w, h, water);
+  m_waterMap.unbind();
+}
+
+void
 Terrain::draw()
 {
   m_vertexBuffer.bind();
 
   m_heightMap.bind();
 
+  glActiveTexture(GL_TEXTURE1);
+  m_waterMap.bind();
+
   glDrawArrays(GL_TRIANGLES, 0, width() * height() * 6);
 
+  m_waterMap.unbind();
+
+  glActiveTexture(GL_TEXTURE0);
   m_heightMap.unbind();
 
   m_vertexBuffer.unbind();

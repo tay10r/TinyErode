@@ -10,6 +10,8 @@ add_executable(tinyerode_viewer
   main.cpp
   Terrain.h
   Terrain.cpp
+  ErosionFilter.h
+  ErosionFilter.cpp
   NoiseFilter.h
   NoiseFilter.cpp
   Renderer.h

@@ -171,7 +171,7 @@ class NoiseFilterImpl final
 
   float frequency = 0.01f;
 
-  float scale = 1.0f;
+  float scale = 10.0f;
 
   FastNoiseLite::NoiseType noiseType = FastNoiseLite::NoiseType_Perlin;
 
@@ -230,7 +230,7 @@ NoiseFilterImpl::generateNoise(Terrain& terrain)
     const int x = i % w;
     const int y = i / w;
 
-    noise[i] = fastNoiseLite.GetNoise(float(x), float(y)) * scale;
+    noise[i] = ((fastNoiseLite.GetNoise(float(x), float(y)) + 1.0f) * 0.5f) * scale;
   }
 
   if (blendMode == BlendMode::Replace) {

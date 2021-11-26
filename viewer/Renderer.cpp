@@ -103,7 +103,9 @@ computeNormal()
 void
 main()
 {
-  highp vec2 xy = ((position * 2.0) - 1.0) * metersPerPixel;
+  ivec2 terrainSize = textureSize(heightMap, 0);
+
+  highp vec2 xy = ((position * 2.0) - 1.0) * (vec2(float(terrainSize.x), float(terrainSize.y)) * metersPerPixel) * 0.5;
 
   vertexNormal = computeNormal();
 
@@ -129,6 +131,56 @@ main()
 }
 )";
 
+const char* gWaterVert = R"(
+#version 300 es
+
+layout(location = 0) in vec2 position;
+
+uniform highp mat4 mvp;
+
+uniform highp float metersPerPixel;
+
+uniform sampler2D height;
+
+uniform sampler2D water;
+
+out highp float waterLevel;
+
+void
+main()
+{
+  highp float waterTexel = texture(water, position).r;
+
+  highp float heightTexel = texture(height, position).r;
+
+  ivec2 terrainSize = textureSize(height, 0);
+
+  highp vec2 xy = ((position * 2.0) - 1.0) * (vec2(float(terrainSize.x), float(terrainSize.y)) * metersPerPixel) * 0.5;
+
+  highp float level = heightTexel + waterTexel;
+
+  waterLevel = waterTexel;
+
+  gl_Position = mvp * vec4(xy.x, level, xy.y, 1.0);
+}
+)";
+
+const char* gWaterFrag = R"(
+#version 300 es
+
+in highp float waterLevel;
+
+out lowp vec4 outColor;
+
+void
+main()
+{
+  lowp float alpha = clamp(waterLevel, 0.0, 0.1) * 10.0;
+
+  outColor = vec4(0.0, 0.0, 1.0, alpha);
+}
+)";
+
 } // namespace
 
 class RendererImpl final
@@ -136,6 +188,8 @@ class RendererImpl final
   friend Renderer;
 
   OpenGLShaderProgram program;
+
+  OpenGLShaderProgram waterProgram;
 };
 
 Renderer::~Renderer()
@@ -149,10 +203,11 @@ Renderer::compileShaders(std::ostream& errStream)
   if (!getSelf().program.makeSimpleProgram(gTerrainVert, gTerrainFrag, errStream))
     return false;
 
+  if (!getSelf().waterProgram.makeSimpleProgram(gWaterVert, gWaterFrag, errStream))
+    return false;
+
   setMVP(glm::mat4(1.0f));
-
   setLightDir(glm::normalize(glm::vec3(1, 1, 0)));
-
   setMetersPerPixel(1.0f);
 
   return true;
@@ -171,11 +226,29 @@ Renderer::render(Terrain& terrain)
 }
 
 void
+Renderer::renderWater(Terrain& terrain)
+{
+  RendererImpl& self = getSelf();
+
+  self.waterProgram.bind();
+
+  glUniform1i(self.waterProgram.getUniformLocation("water"), 1);
+
+  terrain.draw();
+
+  self.waterProgram.unbind();
+}
+
+void
 Renderer::setMVP(const glm::mat4& mvp)
 {
   getSelf().program.bind();
   getSelf().program.setUniformValue("mvp", mvp);
   getSelf().program.unbind();
+
+  getSelf().waterProgram.bind();
+  getSelf().waterProgram.setUniformValue("mvp", mvp);
+  getSelf().waterProgram.unbind();
 }
 
 void
@@ -192,6 +265,10 @@ Renderer::setMetersPerPixel(float metersPerPixel)
   getSelf().program.bind();
   getSelf().program.setUniformValue("metersPerPixel", metersPerPixel);
   getSelf().program.unbind();
+
+  getSelf().waterProgram.bind();
+  getSelf().waterProgram.setUniformValue("metersPerPixel", metersPerPixel);
+  getSelf().waterProgram.unbind();
 }
 
 RendererImpl&

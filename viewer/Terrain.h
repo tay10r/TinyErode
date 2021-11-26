@@ -19,9 +19,15 @@ public:
 
   void setHeightMap(const float* height, int w, int h);
 
+  void setWaterMap(const float* water, int w, int h);
+
   const float* getHeightMapBuffer() const noexcept { return m_heightMapBuffer.data(); }
 
   void draw();
+
+  float metersPerPixel() const noexcept { return m_metersPerPixel; }
+
+  void setMetersPerPixel(float metersPerPixel) noexcept { m_metersPerPixel = metersPerPixel; }
 
 private:
   OpenGLVertexBuffer<glm::vec2> m_vertexBuffer;
@@ -35,4 +41,6 @@ private:
   int m_width = 0;
 
   int m_height = 0;
+
+  float m_metersPerPixel = 1.0f;
 };
