@@ -167,7 +167,11 @@ class NoiseFilterImpl final
 {
   friend NoiseFilter;
 
-  int seed = 0;
+  int seed = 1337;
+
+  float frequency = 0.01f;
+
+  float scale = 1.0f;
 
   FastNoiseLite::NoiseType noiseType = FastNoiseLite::NoiseType_Perlin;
 
@@ -197,6 +201,10 @@ NoiseFilter::renderGui(Terrain& terrain)
 
   ImGui_BlendMode(&m_self->blendMode);
 
+  ImGui::SliderFloat("Scale", &m_self->scale, 0.1f, 100.0f);
+
+  ImGui::SliderFloat("Frequency", &m_self->frequency, 0.0001f, 0.05f);
+
   if (ImGui::Button("Generate Noise"))
     m_self->generateNoise(terrain);
 }
@@ -215,12 +223,14 @@ NoiseFilterImpl::generateNoise(Terrain& terrain)
 
   fastNoiseLite.SetNoiseType(noiseType);
 
+  fastNoiseLite.SetFrequency(frequency);
+
   for (int i = 0; i < (w * h); i++) {
 
     const int x = i % w;
     const int y = i / w;
 
-    noise[i] = fastNoiseLite.GetNoise(float(x), float(y));
+    noise[i] = fastNoiseLite.GetNoise(float(x), float(y)) * scale;
   }
 
   if (blendMode == BlendMode::Replace) {

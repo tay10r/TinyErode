@@ -148,6 +148,7 @@ main(int argc, char** argv)
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
+  glfwWindowHint(GLFW_SAMPLES, 4);
   glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
   GLFWwindow* window = glfwCreateWindow(1280, 720, "TinyErode Viewer", nullptr, nullptr);
@@ -165,6 +166,8 @@ main(int argc, char** argv)
 
   glEnable(GL_DEPTH_TEST);
 
+  glEnable(GL_SAMPLES);
+
   glClearColor(0, 0, 0, 1);
 
   updateViewport(window);
@@ -178,6 +181,8 @@ main(int argc, char** argv)
   ImGui_ImplOpenGL3_Init("#version 300 es");
 
   mainLoop(window);
+
+  glDisable(GL_SAMPLES);
 
   glDisable(GL_DEPTH_TEST);
 
