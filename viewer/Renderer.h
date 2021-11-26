@@ -22,7 +22,9 @@ public:
 
   void setLightDir(const glm::vec3& lightDir);
 
-  void setMetersPerPixel(float metersPerPixel);
+  void setTotalMetersX(float meters);
+
+  void setTotalMetersY(float meters);
 
 private:
   RendererImpl& getSelf();

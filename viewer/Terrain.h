@@ -25,9 +25,13 @@ public:
 
   void draw();
 
-  float metersPerPixel() const noexcept { return m_metersPerPixel; }
+  float totalMetersX() const noexcept { return m_totalMetersX; }
 
-  void setMetersPerPixel(float metersPerPixel) noexcept { m_metersPerPixel = metersPerPixel; }
+  float totalMetersY() const noexcept { return m_totalMetersY; }
+
+  void setTotalMetersX(float meters) noexcept { m_totalMetersX = meters; }
+
+  void setTotalMetersY(float meters) noexcept { m_totalMetersY = meters; }
 
 private:
   OpenGLVertexBuffer<glm::vec2> m_vertexBuffer;
@@ -42,5 +46,7 @@ private:
 
   int m_height = 0;
 
-  float m_metersPerPixel = 1.0f;
+  float m_totalMetersX = 1000.0f;
+
+  float m_totalMetersY = 1000.0f;
 };

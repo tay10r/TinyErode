@@ -30,8 +30,8 @@ struct ErodeState final
     , heightMap(w * h)
     , water(w * h, 0.1f)
   {
-    simulation.SetMetersPerX(terrain.metersPerPixel());
-    simulation.SetMetersPerY(terrain.metersPerPixel());
+    simulation.SetMetersPerX(terrain.totalMetersX() / w);
+    simulation.SetMetersPerY(terrain.totalMetersY() / h);
 
     std::memcpy(&heightMap[0], terrain.getHeightMapBuffer(), w * h * sizeof(float));
   }

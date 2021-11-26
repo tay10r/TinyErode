@@ -12,7 +12,9 @@ layout(location = 0) in vec2 position;
 
 uniform highp mat4 mvp;
 
-uniform highp float metersPerPixel;
+uniform highp float totalMetersX;
+
+uniform highp float totalMetersY;
 
 uniform sampler2D heightMap;
 
@@ -56,7 +58,7 @@ computeNormal()
 
     highp vec2 ndc = (uv[i] * 2.0) - 1.0;
 
-    p[i] = vec3(ndc.x, texture(heightMap, uv[i]).r, ndc.y);
+    p[i] = vec3(ndc.x * totalMetersX * 0.5, texture(heightMap, uv[i]).r, ndc.y * totalMetersY * 0.5);
   }
 
   highp vec3 center = p[4];
@@ -103,9 +105,7 @@ computeNormal()
 void
 main()
 {
-  ivec2 terrainSize = textureSize(heightMap, 0);
-
-  highp vec2 xy = ((position * 2.0) - 1.0) * (vec2(float(terrainSize.x), float(terrainSize.y)) * metersPerPixel) * 0.5;
+  highp vec2 xy = ((position * 2.0) - 1.0) * (vec2(totalMetersX, totalMetersY) * 0.5);
 
   vertexNormal = computeNormal();
 
@@ -138,7 +138,9 @@ layout(location = 0) in vec2 position;
 
 uniform highp mat4 mvp;
 
-uniform highp float metersPerPixel;
+uniform highp float totalMetersX;
+
+uniform highp float totalMetersY;
 
 uniform sampler2D height;
 
@@ -153,9 +155,7 @@ main()
 
   highp float heightTexel = texture(height, position).r;
 
-  ivec2 terrainSize = textureSize(height, 0);
-
-  highp vec2 xy = ((position * 2.0) - 1.0) * (vec2(float(terrainSize.x), float(terrainSize.y)) * metersPerPixel) * 0.5;
+  highp vec2 xy = ((position * 2.0) - 1.0) * (vec2(totalMetersX, totalMetersY) * 0.5);
 
   highp float level = heightTexel + waterTexel;
 
@@ -175,7 +175,7 @@ out lowp vec4 outColor;
 void
 main()
 {
-  lowp float alpha = clamp(waterLevel, 0.0, 0.1) * 10.0;
+  lowp float alpha = clamp(waterLevel, 0.0, 0.1) * 9.0;
 
   outColor = vec4(0.0, 0.0, 1.0, alpha);
 }
@@ -208,7 +208,8 @@ Renderer::compileShaders(std::ostream& errStream)
 
   setMVP(glm::mat4(1.0f));
   setLightDir(glm::normalize(glm::vec3(1, 1, 0)));
-  setMetersPerPixel(1.0f);
+  setTotalMetersX(100.0f);
+  setTotalMetersY(100.0f);
 
   return true;
 }
@@ -260,14 +261,26 @@ Renderer::setLightDir(const glm::vec3& lightDir)
 }
 
 void
-Renderer::setMetersPerPixel(float metersPerPixel)
+Renderer::setTotalMetersX(float meters)
 {
   getSelf().program.bind();
-  getSelf().program.setUniformValue("metersPerPixel", metersPerPixel);
+  getSelf().program.setUniformValue("totalMetersX", meters);
   getSelf().program.unbind();
 
   getSelf().waterProgram.bind();
-  getSelf().waterProgram.setUniformValue("metersPerPixel", metersPerPixel);
+  getSelf().waterProgram.setUniformValue("totalMetersX", meters);
+  getSelf().waterProgram.unbind();
+}
+
+void
+Renderer::setTotalMetersY(float meters)
+{
+  getSelf().program.bind();
+  getSelf().program.setUniformValue("totalMetersY", meters);
+  getSelf().program.unbind();
+
+  getSelf().waterProgram.bind();
+  getSelf().waterProgram.setUniformValue("totalMetersY", meters);
   getSelf().waterProgram.unbind();
 }
 

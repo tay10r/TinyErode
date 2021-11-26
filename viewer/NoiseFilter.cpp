@@ -201,7 +201,7 @@ NoiseFilter::renderGui(Terrain& terrain)
 
   ImGui_BlendMode(&m_self->blendMode);
 
-  ImGui::SliderFloat("Scale", &m_self->scale, 0.1f, 100.0f);
+  ImGui::SliderFloat("Scale", &m_self->scale, 0.1f, 1000.0f);
 
   ImGui::SliderFloat("Frequency", &m_self->frequency, 0.0001f, 0.05f);
 

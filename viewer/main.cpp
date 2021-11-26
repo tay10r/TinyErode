@@ -89,10 +89,9 @@ mainLoop(GLFWwindow* window)
 
     if (terrain) {
       renderer.setMVP(mvp);
-
       renderer.setLightDir(glm::vec3(lightX, lightY, lightZ));
-
-      renderer.setMetersPerPixel(terrain->metersPerPixel());
+      renderer.setTotalMetersX(terrain->totalMetersX());
+      renderer.setTotalMetersY(terrain->totalMetersY());
 
       renderer.render(*terrain);
 
@@ -119,9 +118,12 @@ mainLoop(GLFWwindow* window)
       if (terrain) {
         ImGui::Separator();
 
-        float metersPerPixel = terrain->metersPerPixel();
-        ImGui::SliderFloat("Meters per Pixel", &metersPerPixel, 0.01, 10.0);
-        terrain->setMetersPerPixel(metersPerPixel);
+        float totalMetersX = terrain->totalMetersX();
+        float totalMetersY = terrain->totalMetersY();
+        ImGui::SliderFloat("Total Meters (X)", &totalMetersX, 100000.0f, 100.0);
+        ImGui::SliderFloat("Total Meters (Y)", &totalMetersY, 100000.0f, 100.0);
+        terrain->setTotalMetersX(totalMetersX);
+        terrain->setTotalMetersY(totalMetersY);
       }
 
       ImGui::EndTabItem();
