@@ -42,7 +42,7 @@ mainLoop(GLFWwindow* window)
 
   std::unique_ptr<Terrain> terrain;
 
-  const float near = 0.1;
+  const float near = 1;
   const float far = 5000;
 
   int genTerrainWidth = 1023;
@@ -177,6 +177,7 @@ main(int argc, char** argv)
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
   glfwWindowHint(GLFW_SAMPLES, 4);
   glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+  glfwWindowHint(GLFW_DEPTH_BITS, 32);
 
   GLFWwindow* window = glfwCreateWindow(1280, 720, "TinyErode Viewer", nullptr, nullptr);
   if (!window) {

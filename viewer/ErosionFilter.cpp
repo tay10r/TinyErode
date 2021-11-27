@@ -121,7 +121,7 @@ ErodeState::erode()
 
   auto erosion = [](int, int) -> float { return 0.1; };
 
-  auto evaporation = [](int, int) -> float { return 0.00001; };
+  auto evaporation = [](int, int) -> float { return 0.1; };
 
   simulation.ComputeFlowAndTilt(getHeight, getWater);
 
