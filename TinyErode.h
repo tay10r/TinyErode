@@ -1,16 +1,17 @@
-// SPDX-License-Identifier: MIT
-//   _______ _             ______               _
-//  |__   __(_)           |  ____|             | |
-//     | |   _ _ __  _   _| |__   _ __ ___   __| | ___
-//     | |  | | '_ \| | | |  __| | '__/ _ \ / _` |/ _ \
-//     | |  | | | | | |_| | |____| | | (_) | (_| |  __/
-//     |_|  |_|_| |_|\__, |______|_|  \___/ \__,_|\___|
-//                    __/ |
-//                   |___/
-//
-// Copyright (C) 2021 Taylor Holberton
-//
-// A C++ library for simulating erosion.
+/* SPDX-License-Identifier: MIT
+ *   _______ _             ______               _
+ *  |__   __(_)           |  ____|             | |
+ *     | |   _ _ __  _   _| |__   _ __ ___   __| | ___
+ *     | |  | | '_ \| | | |  __| | '__/ _ \ / _` |/ _ \
+ *     | |  | | | | | |_| | |____| | | (_) | (_| |  __/
+ *     |_|  |_|_| |_|\__, |______|_|  \___/ \__,_|\___|
+ *                    __/ |
+ *                   |___/
+ *
+ * Copyright (C) 2021 Taylor Holberton
+ *
+ * A C++ library for simulating erosion.
+ */
 
 #pragma once
 
@@ -84,14 +85,8 @@ public:
   ///
   /// @note For simple models, @p Kc @p Ke and @p Kd can both be single, uniform
   ///       values.
-  template<typename CarryCapacity,
-           typename Deposition,
-           typename Erosion,
-           typename HeightAdder>
-  void TransportSediment(CarryCapacity kC,
-                         Deposition kD,
-                         Erosion kE,
-                         HeightAdder heightAdder);
+  template<typename CarryCapacity, typename Deposition, typename Erosion, typename HeightAdder>
+  void TransportSediment(CarryCapacity kC, Deposition kD, Erosion kE, HeightAdder heightAdder);
 
   /// Evaporates water in the water model, based on evaporation constants.
   ///
@@ -113,20 +108,11 @@ public:
   void Resize(int w, int h);
 
   /// Gets the sediment levels at each cell. Useful primarily for debugging.
-  auto GetSediment() const noexcept -> const std::vector<float>&
-  {
-    return mSediment;
-  }
+  auto GetSediment() const noexcept -> const std::vector<float>& { return mSediment; }
 
-  void SetMetersPerX(float metersPerX) noexcept
-  {
-    mPipeLengths[0] = metersPerX;
-  }
+  void SetMetersPerX(float metersPerX) noexcept { mPipeLengths[0] = metersPerX; }
 
-  void SetMetersPerY(float metersPerY) noexcept
-  {
-    mPipeLengths[1] = metersPerY;
-  }
+  void SetMetersPerY(float metersPerY) noexcept { mPipeLengths[1] = metersPerY; }
 
 private:
   using Velocity = std::array<float, 2>;
@@ -134,36 +120,19 @@ private:
   using Flow = std::array<float, 4>;
 
   template<typename Height, typename Water>
-  void ComputeFlowAndTiltAt(const Height& height,
-                            const Water& water,
-                            int x,
-                            int y);
+  void ComputeFlowAndTiltAt(const Height& height, const Water& water, int x, int y);
 
   template<typename WaterAdder>
   void TransportWaterAt(WaterAdder& water, int x, int y);
 
-  template<typename CarryCapacity,
-           typename Deposition,
-           typename Erosion,
-           typename HeightAdder>
-  void ErodeAndDeposit(CarryCapacity& kC,
-                       Deposition& kD,
-                       Erosion& kE,
-                       HeightAdder& heightAdder,
-                       int x,
-                       int y);
+  template<typename CarryCapacity, typename Deposition, typename Erosion, typename HeightAdder>
+  void ErodeAndDeposit(CarryCapacity& kC, Deposition& kD, Erosion& kE, HeightAdder& heightAdder, int x, int y);
 
-  const Flow& GetFlow(int x, int y) const noexcept
-  {
-    return mFlow[(y * GetWidth()) + x];
-  }
+  const Flow& GetFlow(int x, int y) const noexcept { return mFlow[(y * GetWidth()) + x]; }
 
   Flow& GetFlow(int x, int y) noexcept { return mFlow[(y * GetWidth()) + x]; }
 
-  bool InBounds(int x, int y) const noexcept
-  {
-    return (x >= 0) && (x < GetWidth()) && (y >= 0) && (y < GetHeight());
-  }
+  bool InBounds(int x, int y) const noexcept { return (x >= 0) && (x < GetWidth()) && (y >= 0) && (y < GetHeight()); }
 
   Flow GetInflow(int x, int y) const noexcept;
 
@@ -262,10 +231,7 @@ Simulation::ComputeFlowAndTilt(const Height& height, const Water& water)
 
 template<typename Height, typename Water>
 void
-Simulation::ComputeFlowAndTiltAt(const Height& height,
-                                 const Water& water,
-                                 int x,
-                                 int y)
+Simulation::ComputeFlowAndTiltAt(const Height& height, const Water& water, int x, int y)
 {
   auto& center = GetFlow(x, y);
 
@@ -306,8 +272,7 @@ Simulation::ComputeFlowAndTiltAt(const Height& height,
     center[i] = std::max(0.0f, center[i] + c);
   }
 
-  float totalOutputVolume =
-    std::accumulate(center.begin(), center.end(), 0.0f) * mTimeStep;
+  float totalOutputVolume = std::accumulate(center.begin(), center.end(), 0.0f) * mTimeStep;
 
   if (totalOutputVolume > (centerW * mPipeLengths[0] * mPipeLengths[1])) {
 
@@ -337,15 +302,9 @@ Simulation::ComputeFlowAndTiltAt(const Height& height,
   mTilt[ToIndex(x, y)] = std::sqrt(abSum) / std::sqrt(1 + abSum);
 }
 
-template<typename CarryCapacity,
-         typename Deposition,
-         typename Erosion,
-         typename HeightAdder>
+template<typename CarryCapacity, typename Deposition, typename Erosion, typename HeightAdder>
 void
-Simulation::TransportSediment(CarryCapacity kC,
-                              Deposition kD,
-                              Erosion kE,
-                              HeightAdder heightAdder)
+Simulation::TransportSediment(CarryCapacity kC, Deposition kD, Erosion kE, HeightAdder heightAdder)
 {
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -428,17 +387,9 @@ Simulation::TerminateRainfall(HeightAdder heightAdder)
   }
 }
 
-template<typename CarryCapacity,
-         typename Deposition,
-         typename Erosion,
-         typename HeightAdder>
+template<typename CarryCapacity, typename Deposition, typename Erosion, typename HeightAdder>
 void
-Simulation::ErodeAndDeposit(CarryCapacity& kC,
-                            Deposition& kD,
-                            Erosion& kE,
-                            HeightAdder& heightAdder,
-                            int x,
-                            int y)
+Simulation::ErodeAndDeposit(CarryCapacity& kC, Deposition& kD, Erosion& kE, HeightAdder& heightAdder, int x, int y)
 {
   auto vel = mVelocity[ToIndex(x, y)];
 
@@ -499,8 +450,7 @@ Simulation::GetScalingFactor(const Flow& flow, float waterLevel) noexcept
   if (volume == 0.0f)
     return 1.0f;
 
-  return std::min(1.0f,
-                  (waterLevel * mPipeLengths[0] * mPipeLengths[1]) / volume);
+  return std::min(1.0f, (waterLevel * mPipeLengths[0] * mPipeLengths[1]) / volume);
 }
 
 inline void
