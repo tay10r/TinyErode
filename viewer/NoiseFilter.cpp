@@ -171,7 +171,7 @@ class NoiseFilterImpl final
 
   float frequency = 0.01f;
 
-  float scale = 10.0f;
+  float scale = 200.0f;
 
   FastNoiseLite::NoiseType noiseType = FastNoiseLite::NoiseType_Perlin;
 
@@ -185,7 +185,8 @@ class NoiseFilterImpl final
 
 NoiseFilter::NoiseFilter()
   : m_self(new NoiseFilterImpl())
-{}
+{
+}
 
 NoiseFilter::~NoiseFilter()
 {
@@ -234,13 +235,13 @@ NoiseFilterImpl::generateNoise(Terrain& terrain)
   }
 
   if (blendMode == BlendMode::Replace) {
-    terrain.setHeightMap(noise.data(), w, h);
+    terrain.setSoilHeight(noise.data(), w, h);
     return;
   }
 
   std::vector<float> dstBuffer(w * h, 0.0f);
 
-  const float* src = terrain.getHeightMapBuffer();
+  const float* src = terrain.getSoilBuffer();
   const float* tmp = noise.data();
   float* dst = dstBuffer.data();
 
@@ -259,7 +260,7 @@ NoiseFilterImpl::generateNoise(Terrain& terrain)
       break;
   }
 
-  terrain.setHeightMap(dst, w, h);
+  terrain.setSoilHeight(dst, w, h);
 }
 
 template<typename BlendFunc>

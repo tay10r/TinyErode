@@ -23,7 +23,7 @@ OpenGLTexture2D::OpenGLTexture2D()
 
 OpenGLTexture2D::OpenGLTexture2D(OpenGLTexture2D&& other)
   : m_textureID(other.m_textureID)
-  , m_boundFlag(other.m_boundFlag)
+    , m_boundFlag(other.m_boundFlag)
 {
   other.m_textureID = 0;
   other.m_boundFlag = false;

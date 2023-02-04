@@ -5,6 +5,8 @@
 #include <random>
 #include <vector>
 
+#define _USE_MATH_DEFINES 1
+
 #include <math.h>
 #include <stdint.h>
 

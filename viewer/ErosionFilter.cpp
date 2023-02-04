@@ -25,15 +25,15 @@ struct ErodeState final
 
   ErodeState(const Terrain& terrain)
     : w(terrain.width())
-    , h(terrain.height())
-    , simulation(w, h)
-    , heightMap(w * h)
-    , water(w * h, 0.1f)
+      , h(terrain.height())
+      , simulation(w, h)
+      , heightMap(w * h)
+      , water(w * h, 0.1f)
   {
     simulation.SetMetersPerX(terrain.totalMetersX() / w);
     simulation.SetMetersPerY(terrain.totalMetersY() / h);
 
-    std::memcpy(&heightMap[0], terrain.getHeightMapBuffer(), w * h * sizeof(float));
+    std::memcpy(&heightMap[0], terrain.getSoilBuffer(), w * h * sizeof(float));
   }
 
   void erode();
@@ -95,9 +95,9 @@ ErosionFilter::erode(Terrain& terrain)
   const int w = m_self->erodeState->w;
   const int h = m_self->erodeState->h;
 
-  terrain.setHeightMap(m_self->erodeState->heightMap.data(), w, h);
+  terrain.setSoilHeight(m_self->erodeState->heightMap.data(), w, h);
 
-  terrain.setWaterMap(m_self->erodeState->water.data(), w, h);
+  terrain.setWaterHeight(m_self->erodeState->water.data(), w, h);
 }
 
 namespace {

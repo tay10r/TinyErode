@@ -6,6 +6,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <glm/gtx/transform.hpp>
+
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -21,6 +23,20 @@
 #include "Renderer.h"
 #include "Terrain.h"
 
+#include "DroidSans.h"
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
+#ifdef near
+#undef near
+#endif
+
+#ifdef far
+#undef far
+#endif
+
 namespace {
 
 void
@@ -32,118 +48,134 @@ updateViewport(GLFWwindow* window)
   glViewport(0, 0, w, h);
 }
 
-int
-mainLoop(GLFWwindow* window)
+struct Camera final
 {
-  Renderer renderer;
+  float azimuth{ 30.0f };
 
-  if (!renderer.compileShaders(std::cerr))
-    return EXIT_FAILURE;
+  float altitude{ 20.0f };
 
-  std::unique_ptr<Terrain> terrain;
+  float fov{ glm::radians(45.0f) };
 
-  const float near = 1;
-  const float far = 5000;
+  float distance{ 300 };
 
-  int genTerrainWidth = 1023;
-  int genTerrainHeight = 1023;
+  float near{ 1.0 };
 
-  ErosionFilter erosionFilter;
+  float far{ 1000.0 };
 
-  NoiseFilter noiseFilter;
-
-  float camAzimuth = glm::radians(30.0f);
-  float camAltitude = glm::radians(30.0f);
-  float camDistance = 350;
-  float camFov = glm::radians(45.0f);
-
-  float lightX = 1;
-  float lightY = 1;
-  float lightZ = 1;
-
-  auto getCamPosition = [&camAzimuth, &camAltitude, &camDistance]() -> glm::vec3 {
-    const float altitude = glm::radians(90.0f) - camAltitude;
-    const float x = camDistance * std::cos(camAzimuth) * std::sin(altitude);
-    const float y = camDistance * std::sin(camAzimuth) * std::sin(altitude);
-    const float z = camDistance * std::cos(altitude);
-    return glm::vec3(y, z, -x);
+  glm::vec3 getPosition() const
+  {
+    const auto rot_y = glm::rotate(glm::radians(azimuth), glm::vec3(0, 1, 0));
+    const auto rot_x = glm::rotate(glm::radians(altitude), glm::vec3(1, 0, 0));
+    return glm::vec3(rot_y * rot_x * glm::vec4(0, 0, -1, 1)) * distance;
   };
 
-  while (!glfwWindowShouldClose(window)) {
+  glm::mat4 perspective(const float aspect) const
+  {
+    return glm::perspective(fov, aspect, near, far);
+  }
 
+  glm::mat4 view() const
+  {
+    const auto eye = getPosition();
+
+    return glm::lookAt(eye, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+  }
+};
+
+class App final
+{
+public:
+  explicit App(GLFWwindow* window)
+    : m_window(window)
+  {
+    ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(DroidSans_compressed_data, DroidSans_compressed_size, 16.0);
+
+    ImGui::GetIO().Fonts->Build();
+
+    auto& style = ImGui::GetStyle();
+    style.FrameRounding = 4;
+    style.WindowRounding = 4;
+    style.ChildRounding = 4;
+    style.PopupRounding = 4;
+  }
+
+  bool init()
+  {
+    if (!m_renderer.compileShaders(std::cerr))
+      return false;
+
+    generateNewTerrain();
+
+    return true;
+  }
+
+  void run()
+  {
+    while (!glfwWindowShouldClose(m_window)) {
+
+      renderFrame();
+    }
+  }
+
+private:
+  void renderFrame()
+  {
     glfwPollEvents();
 
     int w = 0;
     int h = 0;
-    glfwGetFramebufferSize(window, &w, &h);
-    const float aspect = float(w) / h;
+    glfwGetFramebufferSize(m_window, &w, &h);
+    const float aspect = static_cast<float>(w) / h;
 
-    const glm::mat4 proj = glm::perspective(camFov, aspect, near, far);
-    const glm::mat4 view = glm::lookAt(getCamPosition(), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-    const glm::mat4 mvp = proj * view;
+    const glm::mat4 mvp = m_camera.perspective(aspect) * m_camera.view();
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (terrain && erosionFilter.inErodeState())
-      erosionFilter.erode(*terrain);
+    if (m_terrain && m_erosionFilter.inErodeState())
+      m_erosionFilter.erode(*m_terrain);
 
-    if (terrain) {
-      renderer.setMVP(mvp);
-      renderer.setLightDir(glm::vec3(lightX, lightY, lightZ));
-      renderer.setTotalMetersX(terrain->totalMetersX());
-      renderer.setTotalMetersY(terrain->totalMetersY());
+    if (m_terrain) {
+      m_renderer.setMVP(mvp);
+      m_renderer.setLightDir(m_light);
+      m_renderer.setTotalMetersX(m_terrain->totalMetersX());
+      m_renderer.setTotalMetersY(m_terrain->totalMetersY());
 
-      renderer.render(*terrain);
+      m_renderer.render(*m_terrain);
 
-      if (erosionFilter.inErodeState())
-        renderer.renderWater(*terrain);
+      if (m_erosionFilter.inErodeState())
+        m_renderer.renderWater(*m_terrain);
     }
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    renderMainMenuBar();
+
     ImGui::Begin("Options");
 
     ImGui::BeginTabBar("Option Tabs");
 
     if (ImGui::BeginTabItem("Setup")) {
-
-      ImGui::SliderInt("Terrain Width", &genTerrainWidth, 1, 4095);
-      ImGui::SliderInt("Terrain Height", &genTerrainHeight, 1, 4095);
-
-      if (ImGui::Button("Generate Initial Terrain"))
-        terrain.reset(new Terrain(genTerrainWidth, genTerrainHeight));
-
-      if (terrain) {
-        ImGui::Separator();
-
-        float totalMetersX = terrain->totalMetersX();
-        float totalMetersY = terrain->totalMetersY();
-        ImGui::SliderFloat("Total Meters (X)", &totalMetersX, 100000.0f, 100.0);
-        ImGui::SliderFloat("Total Meters (Y)", &totalMetersY, 100000.0f, 100.0);
-        terrain->setTotalMetersX(totalMetersX);
-        terrain->setTotalMetersY(totalMetersY);
-      }
-
+      renderTerrainOptions();
       ImGui::EndTabItem();
     }
 
     if (ImGui::BeginTabItem("Camera")) {
-      ImGui::SliderFloat("Camera Azimuth", &camAzimuth, 0.01f, glm::radians(180.0f));
-      ImGui::SliderFloat("Camera Altitude", &camAltitude, 0.01f, glm::radians(90.0f));
-      ImGui::SliderFloat("Camera Distance", &camDistance, near, far);
-      ImGui::SliderFloat("Camera FOV", &camFov, glm::radians(10.0f), glm::radians(90.0f));
+      ImGui::SliderFloat("Camera Azimuth", &m_camera.azimuth, 0.0f, 360.0);
+      ImGui::SliderFloat("Camera Altitude", &m_camera.altitude, 0.0f, 90.0f);
+      ImGui::SliderFloat("Camera Distance", &m_camera.distance, m_camera.near, m_camera.far);
+      ImGui::SliderFloat("Camera FOV", &m_camera.fov, glm::radians(10.0f), glm::radians(90.0f));
       ImGui::EndTabItem();
     }
 
-    if (terrain && ImGui::BeginTabItem("Noise Filter")) {
-      noiseFilter.renderGui(*terrain);
+    if (m_terrain && ImGui::BeginTabItem("Noise Filter")) {
+      m_noiseFilter.renderGui(*m_terrain);
       ImGui::EndTabItem();
     }
 
-    if (terrain && ImGui::BeginTabItem("Erosion Filter")) {
-      erosionFilter.renderGui(*terrain);
+    if (m_terrain && ImGui::BeginTabItem("Erosion Filter")) {
+      m_erosionFilter.renderGui(*m_terrain);
       ImGui::EndTabItem();
     }
 
@@ -155,16 +187,105 @@ mainLoop(GLFWwindow* window)
 
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-    glfwSwapBuffers(window);
+    glfwSwapBuffers(m_window);
   }
 
-  return true;
+  void renderTerrainOptions()
+  {
+    if (m_terrain) {
+
+      float totalMetersX = m_terrain->totalMetersX();
+      float totalMetersY = m_terrain->totalMetersY();
+
+      ImGui::SliderFloat("Total Meters (X)", &totalMetersX, 1.0f, 4097.0);
+      ImGui::SliderFloat("Total Meters (Y)", &totalMetersY, 1.0f, 4097.0);
+
+      m_terrain->setTotalMetersX(totalMetersX);
+      m_terrain->setTotalMetersY(totalMetersY);
+
+      if (ImGui::Button("Close")) {
+        m_terrain.reset();
+      }
+
+    } else {
+
+      ImGui::SliderInt("Terrain Width", &m_generateTerrainWidth, 2, 4096);
+      ImGui::SliderInt("Terrain Height", &m_generateTerrainHeight, 2, 4096);
+
+      if (ImGui::Button("Generate Initial Terrain"))
+        generateNewTerrain();
+    }
+  }
+
+  void renderMainMenuBar()
+  {
+    if (ImGui::BeginMainMenuBar()) {
+
+      if (ImGui::BeginMenu("File")) {
+
+        ImGui::EndMenu();
+      }
+
+      if (ImGui::BeginMenu("Edit")) {
+
+        if (ImGui::MenuItem("Undo")) {
+        }
+
+        if (ImGui::MenuItem("Redo")) {
+
+        }
+
+        ImGui::EndMenu();
+      }
+
+      ImGui::EndMainMenuBar();
+    }
+  }
+
+  void generateNewTerrain() { m_terrain.reset(new Terrain(m_generateTerrainWidth, m_generateTerrainHeight)); }
+
+private:
+  GLFWwindow* m_window{ nullptr };
+
+  Renderer m_renderer;
+
+  Camera m_camera;
+
+  std::unique_ptr<Terrain> m_terrain;
+
+  ErosionFilter m_erosionFilter;
+
+  NoiseFilter m_noiseFilter;
+
+  glm::vec3 m_light{ glm::normalize(glm::vec3(1, 1, 0)) };
+
+  int m_generateTerrainWidth{ 256 };
+
+  int m_generateTerrainHeight{ 256 };
+};
+
+int
+mainLoop(GLFWwindow* window)
+{
+  App app(window);
+
+  if (!app.init())
+    return EXIT_FAILURE;
+
+  app.run();
+
+  return EXIT_SUCCESS;
 }
 
 } // namespace
 
+#ifdef _WIN32
+int
+WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
+#else
 int
 main(int argc, char** argv)
+#endif
 {
   if (glfwInit() != GLFW_TRUE) {
     std::cerr << "Failed to initialize GLFW." << std::endl;
@@ -188,7 +309,7 @@ main(int argc, char** argv)
 
   glfwMakeContextCurrent(window);
 
-  gladLoadGLES2Loader((GLADloadproc)glfwGetProcAddress);
+  gladLoadGLES2Loader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress));
 
   glfwSwapInterval(1);
 
@@ -210,7 +331,7 @@ main(int argc, char** argv)
 
   ImGui_ImplOpenGL3_Init("#version 300 es");
 
-  mainLoop(window);
+  const auto exitCode{ mainLoop(window) };
 
   glDisable(GL_SAMPLES);
   glDisable(GL_BLEND);
@@ -224,5 +345,5 @@ main(int argc, char** argv)
 
   glfwTerminate();
 
-  return EXIT_SUCCESS;
+  return exitCode;
 }

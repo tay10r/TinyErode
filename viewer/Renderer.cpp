@@ -16,7 +16,9 @@ uniform highp float totalMetersX;
 
 uniform highp float totalMetersY;
 
-uniform sampler2D heightMap;
+uniform sampler2D rockHeight;
+
+uniform sampler2D soilHeight;
 
 out highp vec3 vertexNormal;
 
@@ -29,7 +31,7 @@ computeNormal()
   //    ------
   //     0 1 2
 
-  ivec2 texSize = textureSize(heightMap, 0);
+  ivec2 texSize = textureSize(rockHeight, 0);
 
   highp vec2 pixel_size = vec2(1.0 / float(texSize.x), 1.0 / float(texSize.y));
 
@@ -54,11 +56,11 @@ computeNormal()
 
   for (int i = 0; i < 9; i++) {
 
-    highp float y = texture(heightMap, uv[i]).r;
+    highp float y = texture(rockHeight, uv[i]).r + texture(soilHeight, uv[i]).r;
 
     highp vec2 ndc = (uv[i] * 2.0) - 1.0;
 
-    p[i] = vec3(ndc.x * totalMetersX * 0.5, texture(heightMap, uv[i]).r, ndc.y * totalMetersY * 0.5);
+    p[i] = vec3(ndc.x * totalMetersX * 0.5, y, ndc.y * totalMetersY * 0.5);
   }
 
   highp vec3 center = p[4];
@@ -109,7 +111,7 @@ main()
 
   vertexNormal = computeNormal();
 
-  gl_Position = mvp * vec4(xy.x, texture(heightMap, position).r, xy.y, 1.0);
+  gl_Position = mvp * vec4(xy.x, texture(rockHeight, position).r + texture(soilHeight, position).r, xy.y, 1.0);
 }
 )";
 
@@ -142,24 +144,26 @@ uniform highp float totalMetersX;
 
 uniform highp float totalMetersY;
 
-uniform sampler2D height;
+uniform sampler2D rockHeight;
 
-uniform sampler2D water;
+uniform sampler2D soilHeight;
+
+uniform sampler2D waterHeight;
 
 out highp float waterLevel;
 
 void
 main()
 {
-  highp float waterTexel = texture(water, position).r;
+  highp float waterOffset = texture(rockHeight, position).r + texture(soilHeight, position).r;
 
-  highp float heightTexel = texture(height, position).r;
+  highp float waterHeightTexel = texture(waterHeight, position).r;
 
   highp vec2 xy = ((position * 2.0) - 1.0) * (vec2(totalMetersX, totalMetersY) * 0.5);
 
-  highp float level = heightTexel + waterTexel;
+  highp float level = waterOffset + waterHeightTexel;
 
-  waterLevel = waterTexel;
+  waterLevel = waterHeightTexel;
 
   gl_Position = mvp * vec4(xy.x, level, xy.y, 1.0);
 }
@@ -175,7 +179,7 @@ out lowp vec4 outColor;
 void
 main()
 {
-  lowp float alpha = clamp(waterLevel, 0.0, 0.1) * 9.0;
+  lowp float alpha = clamp(pow(waterLevel, 0.2), 0.0, 1.0);
 
   outColor = vec4(0.0, 0.0, 1.0, alpha);
 }
@@ -221,6 +225,9 @@ Renderer::render(Terrain& terrain)
 
   self.program.bind();
 
+  glUniform1i(self.program.getUniformLocation("rockHeight"), 0);
+  glUniform1i(self.program.getUniformLocation("soilHeight"), 1);
+
   terrain.draw();
 
   self.program.unbind();
@@ -233,7 +240,9 @@ Renderer::renderWater(Terrain& terrain)
 
   self.waterProgram.bind();
 
-  glUniform1i(self.waterProgram.getUniformLocation("water"), 1);
+  glUniform1i(self.waterProgram.getUniformLocation("rockHeight"), 0);
+  glUniform1i(self.waterProgram.getUniformLocation("soilHeight"), 1);
+  glUniform1i(self.waterProgram.getUniformLocation("waterHeight"), 2);
 
   terrain.draw();
 
