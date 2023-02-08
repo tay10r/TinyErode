@@ -315,7 +315,7 @@ Simulation::TransportSediment(CarryCapacity kC, Deposition kD, Erosion kE, Heigh
       ErodeAndDeposit(kC, kD, kE, heightAdder, x, y);
   }
 
-  std::vector<float> nextSediment(GetWidth() * GetHeight());
+  std::vector<float> nextSediment(GetWidth() * GetHeight(), 0.0f);
 
 #ifdef _OPENMP
 #pragma omp parallel for

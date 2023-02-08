@@ -13,6 +13,11 @@ endif(TINYERODE_OPENMP)
 
 add_library(tinyerode INTERFACE)
 
+target_sources(tinyerode
+  INTERFACE
+    "${CMAKE_CURRENT_SOURCE_DIR}/TinyErode.h")
+
+
 target_include_directories(tinyerode INTERFACE "${PROJECT_SOURCE_DIR}")
 
 if(TINYERODE_OPENMP AND OpenMP_FOUND)

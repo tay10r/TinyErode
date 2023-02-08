@@ -198,9 +198,9 @@ private:
 
   int m_height = 0;
 
-  float m_totalMetersX = 255.0f;
+  float m_totalMetersX{ (static_cast<float>(m_width) / 4.0f) - 1.0f };
 
-  float m_totalMetersY = 255.0f;
+  float m_totalMetersY = { (static_cast<float>(m_height) / 4.0f) - 1.0f };
 
   /// The collection of snapshots for each edit.
   std::vector<Snapshot> m_snapshots{ Snapshot(m_width, m_height) };

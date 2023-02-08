@@ -171,7 +171,7 @@ class NoiseFilterImpl final
 
   float frequency = 0.01f;
 
-  float scale = 200.0f;
+  float scale = 20.0f;
 
   FastNoiseLite::NoiseType noiseType = FastNoiseLite::NoiseType_Perlin;
 

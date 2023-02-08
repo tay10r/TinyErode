@@ -52,11 +52,11 @@ struct Camera final
 {
   float azimuth{ 30.0f };
 
-  float altitude{ 20.0f };
+  float altitude{ 30.0f };
 
   float fov{ glm::radians(45.0f) };
 
-  float distance{ 300 };
+  float distance{ 100 };
 
   float near{ 1.0 };
 
@@ -113,11 +113,25 @@ public:
   {
     while (!glfwWindowShouldClose(m_window)) {
 
+      checkCameraController();
+
       renderFrame();
     }
   }
 
 private:
+  void checkCameraController()
+  {
+    if (!ImGui::GetIO().WantCaptureMouse) {
+
+      if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+        const auto delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
+        m_camera.azimuth += delta.x / ImGui::GetIO().DisplaySize.x;
+        m_camera.altitude += -delta.y / ImGui::GetIO().DisplaySize.y;
+      }
+    }
+  }
+
   void renderFrame()
   {
     glfwPollEvents();
