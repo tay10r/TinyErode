@@ -17,11 +17,7 @@
 namespace {
 
 bool
-SavePNG(const char* imagePath,
-        int w,
-        int h,
-        const std::vector<float>& heightMap,
-        float maxHeight);
+SavePNG(const char* imagePath, int w, int h, const std::vector<float>& heightMap, float maxHeight);
 
 void
 GenHeightMap(int w, int h, std::vector<float>& heightMap, float maxHeight)
@@ -60,8 +56,8 @@ main()
   const int h = 512;
 
   const float maxHeight = 200;
-  const float metersPerX = 1000 / w;
-  const float metersPerY = 1000 / h;
+  const float metersPerX = (w / 4) - 1;
+  const float metersPerY = (h / 4) - 1;
 
   std::vector<float> heightMap(w * h);
 
@@ -73,9 +69,7 @@ main()
 
   const int iterations = 1024;
 
-  auto getHeight = [&heightMap, w](int x, int y) {
-    return heightMap[(y * w) + x];
-  };
+  auto getHeight = [&heightMap, w](int x, int y) { return heightMap[(y * w) + x]; };
 
   auto getWater = [&water, w](int x, int y) { return water[(y * w) + x]; };
 
@@ -83,9 +77,7 @@ main()
     return water[(y * w) + x] = std::max(0.0f, water[(y * w) + x] + waterDelta);
   };
 
-  auto addHeight = [&heightMap, w](int x, int y, float deltaHeight) {
-    heightMap[(y * w) + x] += deltaHeight;
-  };
+  auto addHeight = [&heightMap, w](int x, int y, float deltaHeight) { heightMap[(y * w) + x] += deltaHeight; };
 
   auto carryCapacity = [](int, int) -> float { return 0.01; };
 
@@ -101,20 +93,17 @@ main()
 
   std::uniform_real_distribution<float> waterDist(1.0, 0.98);
 
-  int rainfalls = 64;
+  int rainfalls = 1;
 
   for (int j = 0; j < rainfalls; j++) {
 
-    std::cout << "Simulating rainfall " << j << " of " << rainfalls
-              << std::endl;
+    std::cout << "Simulating rainfall " << j << " of " << rainfalls << std::endl;
 
     TinyErode::Simulation simulation(w, h);
 
-    std::transform(
-      water.begin(),
-      water.end(),
-      water.begin(),
-      [&rng, &waterDist](float) -> float { return waterDist(rng); });
+    std::transform(water.begin(), water.end(), water.begin(), [&rng, &waterDist](float) -> float {
+      return waterDist(rng);
+    });
 
     simulation.SetMetersPerX(metersPerX);
     simulation.SetMetersPerY(metersPerY);
@@ -125,10 +114,7 @@ main()
 
       simulation.TransportWater(addWater);
 
-      simulation.TransportSediment(carryCapacity,
-                                   deposition,
-                                   erosion,
-                                   addHeight);
+      simulation.TransportSediment(carryCapacity, deposition, erosion, addHeight);
 
       simulation.Evaporate(addWater, evaporation);
     }
@@ -144,11 +130,7 @@ main()
 namespace {
 
 bool
-SavePNG(const char* imagePath,
-        int w,
-        int h,
-        const std::vector<float>& heightMap,
-        float maxHeight)
+SavePNG(const char* imagePath, int w, int h, const std::vector<float>& heightMap, float maxHeight)
 {
   std::vector<unsigned char> buf(w * h);
 

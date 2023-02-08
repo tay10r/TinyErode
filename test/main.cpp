@@ -42,9 +42,7 @@ Normalize(std::vector<float>& v)
   auto max = *minMax.second;
   auto range = max - min;
 
-  auto normalize = [min, range](float in) -> float {
-    return (in - min) / range;
-  };
+  auto normalize = [min, range](float in) -> float { return (in - min) / range; };
 
   std::transform(v.begin(), v.end(), v.begin(), normalize);
 }
@@ -91,10 +89,7 @@ ParseIntOpt(const char* name, const char* arg1, const char* arg2, int* value)
 }
 
 bool
-ParseFloatOpt(const char* name,
-              const char* arg1,
-              const char* arg2,
-              float* value)
+ParseFloatOpt(const char* name, const char* arg1, const char* arg2, float* value)
 {
   if (strcmp(name, arg1) != 0)
     return false;
@@ -107,7 +102,7 @@ main(int argc, char** argv)
 {
   const char* inputPath = "input.png";
 
-  int stepsPerRain = 256;
+  int stepsPerRain = 1024;
 
   float minHeight = 0;
 
@@ -121,9 +116,6 @@ main(int argc, char** argv)
 
   float kEvaporation = 0.1;
 
-  float xRange = 500;
-  float yRange = 500;
-
   float timeStep = 0.0125;
 
   int rainfalls = 1;
@@ -133,28 +125,19 @@ main(int argc, char** argv)
       Debugger::GetInstance().EnableWaterLog();
     } else if (strcmp(argv[i], "--log-sediment") == 0) {
       Debugger::GetInstance().EnableSedimentLog();
-    } else if (ParseFloatOpt("--height-range",
-                             argv[i],
-                             argv[i + 1],
-                             &heightRange)) {
+    } else if (ParseFloatOpt("--height-range", argv[i], argv[i + 1], &heightRange)) {
       i++;
       continue;
     } else if (ParseFloatOpt("--erosion", argv[i], argv[i + 1], &kErosion)) {
       i++;
       continue;
-    } else if (ParseFloatOpt("--deposition",
-                             argv[i],
-                             argv[i + 1],
-                             &kDeposition)) {
+    } else if (ParseFloatOpt("--deposition", argv[i], argv[i + 1], &kDeposition)) {
       i++;
       continue;
     } else if (ParseFloatOpt("--capacity", argv[i], argv[i + 1], &kCapacity)) {
       i++;
       continue;
-    } else if (ParseFloatOpt("--evaporation",
-                             argv[i],
-                             argv[i + 1],
-                             &kEvaporation)) {
+    } else if (ParseFloatOpt("--evaporation", argv[i], argv[i + 1], &kEvaporation)) {
       i++;
       continue;
     } else if (ParseFloatOpt("--time-step", argv[i], argv[i + 1], &timeStep)) {
@@ -163,10 +146,7 @@ main(int argc, char** argv)
     } else if (ParseIntOpt("--rainfalls", argv[i], argv[i + 1], &rainfalls)) {
       i++;
       continue;
-    } else if (ParseIntOpt("--steps-per-rainfall",
-                           argv[i],
-                           argv[i + 1],
-                           &stepsPerRain)) {
+    } else if (ParseIntOpt("--steps-per-rainfall", argv[i], argv[i + 1], &stepsPerRain)) {
       i++;
       continue;
     } else if (argv[i][0] == '-') {
@@ -186,6 +166,9 @@ main(int argc, char** argv)
     return false;
   }
 
+  float xRange = (w / 4) - 1;
+  float yRange = (h / 4) - 1;
+
   for (auto& value : heightMap)
     value = minHeight + (value * heightRange);
 
@@ -197,17 +180,13 @@ main(int argc, char** argv)
 
   double totalTime = 0;
 
-  auto getWater = [&water, w](int x, int y) -> float {
-    return water[(w * y) + x];
-  };
+  auto getWater = [&water, w](int x, int y) -> float { return water[(w * y) + x]; };
 
   auto addWater = [&water, w](int x, int y, float dw) -> float {
     return water[(y * w) + x] = std::max(0.0f, water[(y * w) + x] + dw);
   };
 
-  auto getHeight = [&heightMap, w](int x, int y) -> float {
-    return heightMap[(w * y) + x];
-  };
+  auto getHeight = [&heightMap, w](int x, int y) -> float { return heightMap[(w * y) + x]; };
 
   auto addHeight = [&heightMap, w](int x, int y, float dh) {
     // std::cout << dh << std::endl;
@@ -230,8 +209,7 @@ main(int argc, char** argv)
     simulation.SetMetersPerX(xRange / w);
     simulation.SetMetersPerY(yRange / h);
 
-    std::cout << "Simulating rainfall " << i << " of " << rainfalls
-              << std::endl;
+    std::cout << "Simulating rainfall " << i << " of " << rainfalls << std::endl;
 
     Rain(water, rng);
 
@@ -247,18 +225,13 @@ main(int argc, char** argv)
 
       simulation.TransportWater(addWater);
 
-      simulation.TransportSediment(carryCapacity,
-                                   deposition,
-                                   erosion,
-                                   addHeight);
+      simulation.TransportSediment(carryCapacity, deposition, erosion, addHeight);
 
       simulation.Evaporate(addWater, evaporation);
 
       auto stop = std::chrono::high_resolution_clock::now();
 
-      auto time_delta =
-        std::chrono::duration_cast<std::chrono::duration<float>>(stop - start)
-          .count();
+      auto time_delta = std::chrono::duration_cast<std::chrono::duration<float>>(stop - start).count();
 
       totalTime += time_delta;
     }
@@ -266,8 +239,7 @@ main(int argc, char** argv)
     simulation.TerminateRainfall(addHeight);
   }
 
-  std::cout << "Seconds per iteration: "
-            << totalTime / (rainfalls * stepsPerRain) << std::endl;
+  std::cout << "Seconds per iteration: " << totalTime / (rainfalls * stepsPerRain) << std::endl;
 
   Normalize(heightMap);
 
