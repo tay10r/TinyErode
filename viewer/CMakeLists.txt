@@ -18,6 +18,9 @@ if(NOT glm_FOUND)
   include(FetchContent)
   FetchContent_Declare(glm URL "https://github.com/g-truc/glm/archive/refs/tags/0.9.9.8.zip")
   FetchContent_MakeAvailable(glm)
+  if(NOT TARGET glm::glm)
+    add_library(glm::glm ALIAS glm)
+  endif(NOT TARGET glm::glm)
 endif(NOT glm_FOUND)
 
 add_subdirectory(imgui)
@@ -55,7 +58,7 @@ target_link_libraries(tinyerode_viewer
   PRIVATE
     TinyErode::TinyErode
     glfw
-    glm
+    glm::glm
     TinyErode::ImGui
     TinyErode::Glad
     TinyErode::STB)
