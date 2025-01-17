@@ -2,12 +2,6 @@
 
 #include <glad/glad.h>
 
-#include <glm/glm.hpp>
-
-#include <glm/gtc/matrix_transform.hpp>
-
-#include <glm/gtx/transform.hpp>
-
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -18,10 +12,7 @@
 
 #include <cstdlib>
 
-#include "ErosionFilter.h"
-#include "NoiseFilter.h"
-#include "Renderer.h"
-#include "Terrain.h"
+#include "app.h"
 
 #include "DroidSans.h"
 
@@ -39,6 +30,7 @@
 
 namespace {
 
+#if 0
 void
 updateViewport(GLFWwindow* window)
 {
@@ -69,10 +61,7 @@ struct Camera final
     return glm::vec3(rot_y * rot_x * glm::vec4(0, 0, -1, 1)) * distance;
   };
 
-  glm::mat4 perspective(const float aspect) const
-  {
-    return glm::perspective(fov, aspect, near, far);
-  }
+  glm::mat4 perspective(const float aspect) const { return glm::perspective(fov, aspect, near, far); }
 
   glm::mat4 view() const
   {
@@ -88,15 +77,6 @@ public:
   explicit App(GLFWwindow* window)
     : m_window(window)
   {
-    ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(DroidSans_compressed_data, DroidSans_compressed_size, 16.0);
-
-    ImGui::GetIO().Fonts->Build();
-
-    auto& style = ImGui::GetStyle();
-    style.FrameRounding = 4;
-    style.WindowRounding = 4;
-    style.ChildRounding = 4;
-    style.PopupRounding = 4;
   }
 
   bool init()
@@ -134,8 +114,6 @@ private:
 
   void renderFrame()
   {
-    glfwPollEvents();
-
     int w = 0;
     int h = 0;
     glfwGetFramebufferSize(m_window, &w, &h);
@@ -159,10 +137,6 @@ private:
       if (m_erosionFilter.inErodeState())
         m_renderer.renderWater(*m_terrain);
     }
-
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
 
     renderMainMenuBar();
 
@@ -197,11 +171,6 @@ private:
 
     ImGui::End();
 
-    ImGui::Render();
-
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-    glfwSwapBuffers(m_window);
   }
 
   void renderTerrainOptions()
@@ -246,7 +215,6 @@ private:
         }
 
         if (ImGui::MenuItem("Redo")) {
-
         }
 
         ImGui::EndMenu();
@@ -277,18 +245,56 @@ private:
 
   int m_generateTerrainHeight{ 256 };
 };
+#endif
 
 int
 mainLoop(GLFWwindow* window)
 {
-  App app(window);
+  ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(DroidSans_compressed_data, DroidSans_compressed_size, 16.0);
 
-  if (!app.init())
-    return EXIT_FAILURE;
+  ImGui::GetIO().Fonts->Build();
 
-  app.run();
+  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-  return EXIT_SUCCESS;
+  auto& style = ImGui::GetStyle();
+  style.FrameRounding = 4;
+  style.WindowRounding = 4;
+  style.ChildRounding = 4;
+  style.PopupRounding = 4;
+  style.WindowBorderSize = 0;
+
+  auto app = App::Create(window);
+
+  app->Setup();
+
+  while ((glfwWindowShouldClose(window) != GLFW_TRUE) && (app->GetStatus() == App::Status::kRunning)) {
+
+    glfwPollEvents();
+
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape, /*repeat=*/false)) {
+      glfwSetWindowShouldClose(window, GLFW_TRUE);
+    }
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::DockSpaceOverViewport();
+
+    app->Step();
+
+    ImGui::Render();
+
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    glfwSwapBuffers(window);
+  }
+
+  const auto exit_code = app->GetStatus() == App::Status::kSuccess ? EXIT_SUCCESS : EXIT_FAILURE;
+
+  app->Teardown();
+
+  return exit_code;
 }
 
 } // namespace
@@ -309,7 +315,6 @@ main(int argc, char** argv)
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
   glfwWindowHint(GLFW_SAMPLES, 4);
   glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
   glfwWindowHint(GLFW_DEPTH_BITS, 32);
@@ -335,14 +340,10 @@ main(int argc, char** argv)
 
   glClearColor(0, 0, 0, 1);
 
-  updateViewport(window);
-
   IMGUI_CHECKVERSION();
 
   ImGui::CreateContext();
-
   ImGui_ImplGlfw_InitForOpenGL(window, true);
-
   ImGui_ImplOpenGL3_Init("#version 300 es");
 
   const auto exitCode{ mainLoop(window) };

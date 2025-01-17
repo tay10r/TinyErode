@@ -18,6 +18,86 @@
 #ifndef TINYERODE_H_INCLUDED
 #define TINYERODE_H_INCLUDED
 
+#include <stdint.h>
+#include <stdlib.h>
+
+namespace TinyErode {
+
+namespace V2 {
+
+class Buffer final
+{
+public:
+  explicit Buffer(uint32_t size = 0);
+
+  Buffer(const Buffer&) = delete;
+
+  Buffer(Buffer&& other) noexcept;
+
+  ~Buffer();
+
+private:
+  void* m_data{};
+
+  uint32_t m_size{};
+};
+
+/// Represents a texture living in the memory space of the compute device.
+class Texture
+{
+public:
+  virtual ~Texture() = default;
+};
+
+/// Represents the compute device that will be executing the kernels of the simulation.
+class Device
+{
+public:
+  virtual ~Device() = default;
+};
+
+class Simulation final
+{
+public:
+  Simulation(int w = 0, int h = 0);
+};
+
+} // namespace V2
+
+} // namespace TinyErode
+
+#ifdef TINYERODE_V2_IMPLEMENTATION
+
+namespace TinyErode {
+
+Buffer::Buffer(uint32_t size) noexcept
+  : m_data(malloc(size))
+  , m_size(m_data == nullptr ? 0 : size)
+{
+}
+
+Buffer::Buffer(Buffer&& other) noexcept
+  : m_data(other.data)
+  , m_size(other.m_size)
+{
+  other.m_data = nullptr;
+  other.m_size = 0;
+}
+
+Buffer::~Buffer()
+{
+  free(m_data);
+}
+
+} // namespace TinyErode
+
+#endif /* TINYERODE_V2_IMPLEMENTATION */
+
+/* Define this in order to get rid of the version 1 API. */
+/* #define TINYERODE_NO_V1 */
+
+#ifndef TINYERODE_NO_V1
+
 #include <algorithm>
 #include <array>
 #include <numeric>
@@ -475,5 +555,7 @@ Simulation::Resize(int w, int h)
 }
 
 } // namespace TinyErode
+
+#endif /* TINYERODE_NO_V1 */
 
 #endif // TINYERODE_H_INCLUDED

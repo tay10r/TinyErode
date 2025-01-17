@@ -23,18 +23,31 @@ if(NOT glm_FOUND)
   endif(NOT TARGET glm::glm)
 endif(NOT glm_FOUND)
 
-add_subdirectory(imgui)
 add_subdirectory(glad)
+add_subdirectory(imgui)
 add_subdirectory(stb)
+
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
 
 include(FetchContent)
 FetchContent_GetProperties(imgui)
-
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h"
-	COMMAND $<TARGET_FILE:tinyerode_bin2c> "${imgui_SOURCE_DIR}/misc/fonts/DroidSans.ttf" "DroidSans" >"${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h")
+  COMMAND $<TARGET_FILE:tinyerode_bin2c> "${imgui_SOURCE_DIR}/misc/fonts/DroidSans.ttf" "DroidSans" >"${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h")
 
 add_executable(tinyerode_viewer WIN32
   main.cpp
+  app.h
+  app.cpp
+  ui_flags.h
+  ui_flags.cpp
+  main_menu_bar.h
+  main_menu_bar.cpp
+  help.h
+  help.cpp
+  viewport.h
+  viewport.cpp
   Terrain.h
   Terrain.cpp
   ErosionFilter.h
