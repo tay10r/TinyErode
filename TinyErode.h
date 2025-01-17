@@ -1,16 +1,17 @@
-// SPDX-License-Identifier: MIT
-//   _______ _             ______               _
-//  |__   __(_)           |  ____|             | |
-//     | |   _ _ __  _   _| |__   _ __ ___   __| | ___
-//     | |  | | '_ \| | | |  __| | '__/ _ \ / _` |/ _ \
-//     | |  | | | | | |_| | |____| | | (_) | (_| |  __/
-//     |_|  |_|_| |_|\__, |______|_|  \___/ \__,_|\___|
-//                    __/ |
-//                   |___/
-//
-// Copyright (C) 2021 Taylor Holberton
-//
-// A C++ library for simulating erosion.
+/* SPDX-License-Identifier: MIT
+ *   _______ _             ______               _
+ *  |__   __(_)           |  ____|             | |
+ *     | |   _ _ __  _   _| |__   _ __ ___   __| | ___
+ *     | |  | | '_ \| | | |  __| | '__/ _ \ / _` |/ _ \
+ *     | |  | | | | | |_| | |____| | | (_) | (_| |  __/
+ *     |_|  |_|_| |_|\__, |______|_|  \___/ \__,_|\___|
+ *                    __/ |
+ *                   |___/
+ *
+ * Copyright (C) 2021 Taylor Holberton
+ *
+ * A C++ library for simulating erosion.
+ */
 
 #pragma once
 
@@ -238,7 +239,7 @@ Simulation::TransportWaterAt(WaterAdder& water, int x, int y)
 
   Velocity velocity{ { 0, 0 } };
 
-  if (avgWaterLevel != 0.0f) {
+  if (std::abs(avgWaterLevel) > 1.0e-3f) {
     velocity[0] = dx / (mPipeLengths[0] * avgWaterLevel);
     velocity[1] = dy / (mPipeLengths[1] * avgWaterLevel);
   }

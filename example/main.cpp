@@ -21,13 +21,20 @@ SavePNG(const char* imagePath,
         const std::vector<float>& heightMap,
         float maxHeight);
 
+template<typename Rng>
 void
-GenHeightMap(int w, int h, std::vector<float>& heightMap, float maxHeight)
+GenHeightMap(int w,
+             int h,
+             std::vector<float>& heightMap,
+             float maxHeight,
+             Rng& rng)
 {
   int minDim = std::min(w, h);
 
   int xOffset = 0;
   int yOffset = 0;
+
+  std::uniform_real_distribution<float> noiseDist(0, 1);
 
   if (w > h) {
     xOffset = (w - h) / 2;
@@ -45,7 +52,8 @@ GenHeightMap(int w, int h, std::vector<float>& heightMap, float maxHeight)
 
     int dstIndex = ((y + yOffset) * w) + (x + xOffset);
 
-    heightMap[dstIndex] = std::sin(v * M_PI) * std::sin(u * M_PI) * maxHeight;
+    heightMap[dstIndex] =
+      std::sin(v * M_PI) * std::sin(u * M_PI) * maxHeight + noiseDist(rng);
   }
 }
 
@@ -57,15 +65,19 @@ main()
   const int w = 512;
   const int h = 512;
 
-  const float maxHeight = 200;
-  const float metersPerX = 1000 / w;
-  const float metersPerY = 1000 / h;
+  const float maxHeight = 50;
+  const float metersPerX = 1000.0F / static_cast<float>(w);
+  const float metersPerY = 1000.0F / static_cast<float>(h);
+
+  std::seed_seq seed{ 1234, 42, 4321 };
+
+  std::mt19937 rng(seed);
 
   std::vector<float> heightMap(w * h);
 
   std::vector<float> water(w * h);
 
-  GenHeightMap(w, h, heightMap, maxHeight);
+  GenHeightMap(w, h, heightMap, maxHeight, rng);
 
   SavePNG("before.png", w, h, heightMap, maxHeight);
 
@@ -85,21 +97,17 @@ main()
     heightMap[(y * w) + x] += deltaHeight;
   };
 
-  auto carryCapacity = [](int, int) -> float { return 0.01; };
+  auto carryCapacity = [](int, int) -> float { return 0.01f; };
 
-  auto deposition = [](int, int) -> float { return 0.1; };
+  auto deposition = [](int, int) -> float { return 0.1f; };
 
-  auto erosion = [](int, int) -> float { return 0.1; };
+  auto erosion = [](int, int) -> float { return 0.1f; };
 
-  auto evaporation = [](int, int) -> float { return 0.1; };
+  auto evaporation = [](int, int) -> float { return 0.01f; };
 
-  std::seed_seq seed{ 1234, 42, 4321 };
+  std::uniform_real_distribution<float> waterDist(0.1f, 0.2f);
 
-  std::mt19937 rng(seed);
-
-  std::uniform_real_distribution<float> waterDist(1.0, 0.98);
-
-  int rainfalls = 64;
+  int rainfalls = 4;
 
   for (int j = 0; j < rainfalls; j++) {
 
@@ -114,6 +122,7 @@ main()
       water.begin(),
       [&rng, &waterDist](float) -> float { return waterDist(rng); });
 
+    simulation.SetTimeStep(0.1F);
     simulation.SetMetersPerX(metersPerX);
     simulation.SetMetersPerY(metersPerY);
 
