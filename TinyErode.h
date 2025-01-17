@@ -287,7 +287,9 @@ Simulation::TransportWaterAt(WaterAdder& water, int x, int y)
 
   Velocity velocity{ { 0, 0 } };
 
-  if (avgWaterLevel != 0.0f) {
+  constexpr float epsilon{ 1.0e-3f };
+
+  if (std::abs(avgWaterLevel) > epsilon) {
     velocity[0] = dx / (mPipeLengths[0] * avgWaterLevel);
     velocity[1] = dy / (mPipeLengths[1] * avgWaterLevel);
   }
