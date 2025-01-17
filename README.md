@@ -1,7 +1,9 @@
 TinyErode
 =========
 
-*Note: I have recently discovered that the implementation of this algorithm is not numerically stable, and will in some cases destroy the height field it is operating on. Be advised that this is currently being worked on. Hopefully it will be resolved soon. See the `develop` branch for the latest work.*
+~~*Note: I have recently discovered that the implementation of this algorithm is not numerically stable, and will in some cases destroy the height field it is operating on. Be advised that this is currently being worked on. Hopefully it will be resolved soon. See the `develop` branch for the latest work.*~~
+
+*The notice regarding the numeric stability bug that had been up for a while has been addressed.*
 
 This is a single-header, multithreaded C++ library for simulating the effect of hydraulic erosion on
 height maps. The algorithm is based on the [the one in this paper](https://hal.inria.fr/inria-00402079/).
