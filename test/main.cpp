@@ -107,11 +107,11 @@ main(int argc, char** argv)
 {
   const char* inputPath = "input.png";
 
-  int stepsPerRain = 256;
+  int stepsPerRain = 1024;
 
   float minHeight = 0;
 
-  float heightRange = 200.0f;
+  float heightRange = 50.0f;
 
   float kErosion = 0.005;
 
@@ -126,7 +126,7 @@ main(int argc, char** argv)
 
   float timeStep = 0.0125;
 
-  int rainfalls = 1;
+  int rainfalls = 5;
 
   for (int i = 1; i < argc; i++) {
     if (strcmp(argv[i], "--log-water") == 0) {
@@ -183,7 +183,7 @@ main(int argc, char** argv)
 
   if (!LoadImage(heightMap, w, h, inputPath)) {
     std::cerr << "Failed to open '" << inputPath << "'." << std::endl;
-    return false;
+    return 1;
   }
 
   for (auto& value : heightMap)
