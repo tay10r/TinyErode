@@ -38,6 +38,8 @@ class Simulation final
 public:
   Simulation(int w = 0, int h = 0);
 
+  void SetMinTilt(const float minTilt) noexcept { mMinTilt = minTilt; }
+
   void SetTimeStep(float timeStep) noexcept { mTimeStep = timeStep; }
 
   float GetTimeStep() const noexcept { return mTimeStep; }
@@ -175,6 +177,8 @@ private:
 private:
   float mTimeStep = 0.0125;
 
+  float mMinTilt = 0.01;
+
   float mGravity = 9.8;
 
   std::array<float, 2> mPipeLengths{ 1, 1 };
@@ -235,7 +239,7 @@ Simulation::TransportWaterAt(WaterAdder& water, int x, int y)
   float dx = 0.5f * ((inflow[1] - flow[1]) + (flow[2] - inflow[2]));
   float dy = 0.5f * ((flow[0] - inflow[0]) + (inflow[3] - flow[3]));
 
-  float avgWaterLevel = waterLevel - (waterDelta * 0.5f);
+  float avgWaterLevel = waterLevel + (waterDelta * 0.5f);
 
   Velocity velocity{ { 0, 0 } };
 
@@ -335,7 +339,8 @@ Simulation::ComputeFlowAndTiltAt(const Height& height,
 
   auto abSum = a + b;
 
-  mTilt[ToIndex(x, y)] = std::sqrt(abSum) / std::sqrt(1 + abSum);
+  mTilt[ToIndex(x, y)] =
+    std::max(std::sqrt(abSum) / std::sqrt(1 + abSum), mMinTilt);
 }
 
 template<typename CarryCapacity,
