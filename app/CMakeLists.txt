@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.14.7)
 
+enable_language(C)
+
+include(cmake/pybind11.cmake)
+
 find_package(glfw3 QUIET)
 
 if(NOT glfw3_FOUND)
@@ -34,26 +38,34 @@ endif()
 include(FetchContent)
 FetchContent_GetProperties(imgui)
 add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h"
-  COMMAND $<TARGET_FILE:tinyerode_bin2c> "${imgui_SOURCE_DIR}/misc/fonts/DroidSans.ttf" "DroidSans" >"${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h")
+  COMMAND $<TARGET_FILE:imgui_bin2c> "${imgui_SOURCE_DIR}/misc/fonts/DroidSans.ttf" "DroidSans" >"${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h")
 
-add_executable(tinyerode_viewer WIN32
+FetchContent_Declare(implot URL "https://github.com/epezent/implot/archive/refs/heads/master.zip")
+FetchContent_MakeAvailable(implot)
+FetchContent_GetProperties(implot)
+add_library(implot
+  "${implot_SOURCE_DIR}/implot.h"
+  "${implot_SOURCE_DIR}/implot.cpp"
+  "${implot_SOURCE_DIR}/implot_items.cpp")
+target_include_directories(implot PUBLIC "${implot_SOURCE_DIR}")
+target_link_libraries(implot PUBLIC imgui)
+set_target_properties(implot PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+pybind11_add_module(pylandbrush
   main.cpp
-  app.h
-  app.cpp
-  ui_flags.h
-  ui_flags.cpp
-  main_menu_bar.h
-  main_menu_bar.cpp
-  help.h
-  help.cpp
-  viewport.h
-  viewport.cpp
+  App.h
+  App.cpp
+  Viewport.h
+  Viewport.cpp
+  LayerView.h
+  LayerView.cpp
+  SimState.h
+  SimState.cpp
+  Config.h
+  ControlWidget.h
+  ControlWidget.cpp
   Terrain.h
   Terrain.cpp
-  ErosionFilter.h
-  ErosionFilter.cpp
-  NoiseFilter.h
-  NoiseFilter.cpp
   Renderer.h
   Renderer.cpp
   OpenGLTexture2D.h
@@ -63,24 +75,24 @@ add_executable(tinyerode_viewer WIN32
   OpenGLShaderProgram.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h")
 
-target_include_directories(tinyerode_viewer PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+target_include_directories(pylandbrush PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 
-target_compile_definitions(tinyerode_viewer PRIVATE GLFW_INCLUDE_NONE=1)
+target_compile_definitions(pylandbrush PRIVATE GLFW_INCLUDE_NONE=1)
 
-target_link_libraries(tinyerode_viewer
+target_link_libraries(pylandbrush
   PRIVATE
-    TinyErode::TinyErode
+    landbrush::landbrush
     glfw
+    glad
     glm::glm
-    TinyErode::ImGui
-    TinyErode::Glad
-    TinyErode::STB)
+    stb
+    imgui
+    implot)
 
-set_target_properties(tinyerode_viewer
+set_target_properties(pylandbrush
   PROPERTIES
-    OUTPUT_NAME view
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 
 if(UNIX)
-  target_link_libraries(tinyerode_viewer PRIVATE dl)
+  target_link_libraries(pylandbrush PRIVATE dl)
 endif(UNIX)

@@ -1,39 +1,44 @@
 cmake_minimum_required(VERSION 3.9.6)
 
-project(TinyErode CXX C)
+project(landbrush
+  DESCRIPTION "A library for procedural and interactive terrain editing."
+  VERSION 2.0
+  LANGUAGES CXX)
 
-option(TINYERODE_TEST "Whether or not to build the test program." OFF)
-option(TINYERODE_OPENMP "Whether or not to use OpenMP." ON)
-option(TINYERODE_EXAMPLE "Whether or not to build the example program." OFF)
-option(TINYERODE_VIEWER "Whether or not to include the viewer program." OFF)
+option(LANDBRUSH_OPENMP  "Whether or not to use OpenMP." ON)
+option(LANDBRUSH_EXAMPLE "Whether or not to build the example program." OFF)
+option(LANDBRUSH_APP     "Whether or not to build the app." OFF)
+option(LANDBRUSH_PYTHON  "Whether or not to build the Python library." OFF)
 
-if(TINYERODE_OPENMP)
+if(LANDBRUSH_OPENMP)
   find_package(OpenMP)
-endif(TINYERODE_OPENMP)
+endif(LANDBRUSH_OPENMP)
 
-add_library(tinyerode INTERFACE)
+add_library(landbrush
+  landbrush.h
+  landbrush.cpp
+  landbrush_opengl.h
+  landbrush_opengl_internal.h
+  landbrush_opengl.cpp)
 
-target_sources(tinyerode
-  INTERFACE
-    "${CMAKE_CURRENT_SOURCE_DIR}/TinyErode.h")
+if(LANDBRUSH_PYTHON)
+  set_target_properties(landbrush PROPERTIES POSITION_INDEPENDENT_CODE ON)
+endif()
 
+target_include_directories(landbrush
+  PUBLIC
+    "${PROJECT_SOURCE_DIR}")
 
-target_include_directories(tinyerode INTERFACE "${PROJECT_SOURCE_DIR}")
+if(LANDBRUSH_OPENMP AND OpenMP_FOUND)
+  target_link_libraries(landbrush INTERFACE OpenMP::OpenMP_CXX)
+endif(LANDBRUSH_OPENMP AND OpenMP_FOUND)
 
-if(TINYERODE_OPENMP AND OpenMP_FOUND)
-  target_link_libraries(tinyerode INTERFACE OpenMP::OpenMP_CXX)
-endif(TINYERODE_OPENMP AND OpenMP_FOUND)
+add_library(landbrush::landbrush ALIAS landbrush)
 
-add_library(TinyErode::TinyErode ALIAS tinyerode)
+if(LANDBRUSH_EXAMPLE)
+  #add_subdirectory(example)
+endif(LANDBRUSH_EXAMPLE)
 
-if(TINYERODE_EXAMPLE)
-  add_subdirectory(example)
-endif(TINYERODE_EXAMPLE)
-
-if(TINYERODE_TEST)
-  add_subdirectory(test)
-endif(TINYERODE_TEST)
-
-if(TINYERODE_VIEWER)
-  add_subdirectory(viewer)
-endif(TINYERODE_VIEWER)
+if(LANDBRUSH_PYTHON OR LANDBRUSH_APP)
+  add_subdirectory(app)
+endif(LANDBRUSH_PYTHON OR LANDBRUSH_APP)

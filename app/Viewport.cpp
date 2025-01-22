@@ -1,4 +1,4 @@
-#include "viewport.h"
+#include "Viewport.h"
 
 namespace {
 
@@ -23,3 +23,9 @@ public:
 };
 
 } // namespace
+
+auto
+Viewport::Create() -> std::unique_ptr<Viewport>
+{
+  return std::make_unique<ViewportImpl>();
+}
