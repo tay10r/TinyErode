@@ -150,6 +150,8 @@ SimState::Step(landbrush::backend& backend)
     hydroErosionShader->set_texture("next_sediment", m_sediment.next().get());
     hydroErosionShader->invoke();
 
+    m_soil.step();
+
     m_sediment.step();
 
     auto* hydroTransportShader = backend.get_shader("hydraulic_transport");
@@ -161,8 +163,6 @@ SimState::Step(landbrush::backend& backend)
     hydroTransportShader->set_texture("last_sediment", m_sediment.current().get());
     hydroTransportShader->set_texture("next_sediment", m_sediment.next().get());
     hydroTransportShader->invoke();
-
-    m_soil.step();
 
     auto* blendShader = backend.get_shader("blend");
     blendShader->set_float("k_alpha", 1.0F);

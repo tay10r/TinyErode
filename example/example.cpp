@@ -5,6 +5,8 @@
 
 #include <landbrush.h>
 
+#include <iostream>
+
 #include <fstream>
 #include <iostream>
 #include <random>
@@ -26,10 +28,9 @@ namespace {
 /// @param w The width of the image, in pixels.
 /// @param h The height of the image, in pixels.
 /// @param height_map The height map to save.
-/// @param max_height The maximum height of the height map, which is used to normalize the data.
 /// @return True on success, false on failure.
 auto
-save_png(const char* image_path, int w, int h, const std::vector<float>& height_map, float max_height) -> bool;
+save_png(const char* image_path, int w, int h, const std::vector<float>& height_map) -> bool;
 
 /// @brief Generates a height map for testing purposes.
 /// @param w The width of the height map, in pixels.
@@ -45,36 +46,45 @@ int
 main()
 {
   // This will be the size of the texture.
-  const uint16_t w = 512;
-  const uint16_t h = 512;
+  const uint16_t w = 256;
+  const uint16_t h = 256;
 
-  // A maximum elevation of 50 meters.
-  const float max_height = 50;
+  // A rock layer of 30 meter thickness.
+  const float rock_height{ 30.0F };
 
   // Contains the height of each cell.
   std::vector<float> height_map(static_cast<size_t>(w) * static_cast<size_t>(h));
 
   // Generate an initial terrain
-  gen_height_map(w, h, height_map, max_height);
-
-  // Save a copy so that we can examine how its changed.
-  save_png("before.png", w, h, height_map, max_height);
+  gen_height_map(w, h, height_map, rock_height);
 
   // Here we create a backend. A backend is what is used to accelerate the erosion process.
   // Ideally, we'd be using a backend that executes on a GPU, but to keep this example simple
   // we will be using the built-in CPU backend.
   auto backend = landbrush::cpu_backend::create();
 
+  // Add a layer of soil on top of the rock, which has a 20 meter thickness.
+  constexpr float initial_soil_height{ 20.0F };
+
   // Here we create a pipeline object. This ties together the various
   // components of the backend in order to modify the terrain.
-  landbrush::pipeline pipeline(*backend, w, h, height_map.data());
+  landbrush::pipeline pipeline(*backend, w, h, height_map.data(), initial_soil_height);
 
-  pipeline.apply_water_brush(/*x=*/0, /*y=*/0, /*radius=*/10);
-  pipeline.step();
+  pipeline.read_height(height_map.data());
 
-#if 0
-  SavePNG("after.png", w, h, height_map, max_height);
-#endif
+  // Save a copy so that we can examine how its changed.
+  save_png("before.png", w, h, height_map);
+
+  const int num_steps = 48;
+  for (auto i = 0; i < num_steps; i++) {
+    std::cout << "step " << i << " of " << num_steps << std::endl;
+    pipeline.add_uniform_water(/*delta_water_height=*/1.0F);
+    pipeline.step();
+  }
+
+  pipeline.read_height(height_map.data());
+
+  save_png("after.png", w, h, height_map);
 
   return 0;
 }
@@ -82,17 +92,23 @@ main()
 namespace {
 
 auto
-save_png(const char* image_path, int w, int h, const std::vector<float>& height_map, float max_height) -> bool
+save_png(const char* image_path, int w, int h, const std::vector<float>& height_map) -> bool
 {
   std::vector<unsigned char> buf(w * h);
 
+  float min_v{ height_map[0] };
+  float max_v{ height_map[0] };
+
   for (int i = 0; i < (w * h); i++) {
+    min_v = std::min(min_v, height_map[i]);
+    max_v = std::max(max_v, height_map[i]);
+  }
 
-    float v = (height_map[i] / max_height) * 255.0f;
+  const auto scale = 255.0F / (max_v - min_v);
 
-    v = std::max(std::min(v, 255.0f), 0.0f);
-
-    buf[i] = v;
+  for (int i = 0; i < (w * h); i++) {
+    const float v = ((height_map[i] - min_v) * scale);
+    buf[i] = std::max(std::min(static_cast<int>(v), 255), 0);
   }
 
   return !!stbi_write_png(image_path, w, h, 1, buf.data(), w);
@@ -154,7 +170,7 @@ gen_height_map(const int w, const int h, std::vector<float>& height_map, const f
       }
     }
 
-    std::uniform_real_distribution<float> noise_dist(0, 2);
+    std::uniform_real_distribution<float> noise_dist(0, 1);
 
     height_map[dst_index] = cell * max_height + noise_dist(rng);
   }

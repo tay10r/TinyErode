@@ -185,7 +185,7 @@ public:
   {
     /// @brief The number of seconds between time iterations. The lower this number is, the more accurate and stable the
     /// pipeline is.
-    float time_delta{ 0.01F };
+    float time_delta{ 0.1F };
 
     /// @brief The distance between cells, in terms of meters.
     float pipe_length{ 10.0F };
@@ -198,19 +198,19 @@ public:
     float gravity{ 9.8F };
 
     /// @brief Affects the amount of sediment that can be carried by water.
-    float carry_capacity{ 1.0F };
+    float carry_capacity{ 0.2F };
 
     /// @brief Affects how the rate at which soil can be picked up by water.
-    float erosion{ 1.0F };
+    float erosion{ 0.1F };
 
     /// @brief Affects how the rate at which soil can be dropped by water.
-    float deposition{ 1.0F };
+    float deposition{ 0.1F };
 
     /// @brief The minimum amount of tilt to assume for each cell in the terrain, when it comes to hydraulic erosion.
     float min_tilt{ 0.01F };
 
     /// @brief The number of time iterations per step.
-    uint32_t iterations_per_step{ 16 };
+    uint32_t iterations_per_step{ 128 };
   };
 
   /// @brief Constructs a new pipeline object.
@@ -219,7 +219,8 @@ public:
   /// @param h The height of the terrain, in terms of texels.
   /// @param rock_data The data for the rock base layer.
   ///                  This may be null, in which case the rock base layer will remain flat.
-  pipeline(backend& bck, uint16_t w, uint16_t h, const float* rock_data);
+  /// @param initial_soil_height The total soil height for the terrain, which sits on top of the rock layer.
+  pipeline(backend& bck, uint16_t w, uint16_t h, const float* rock_data, float initial_soil_height);
 
   auto get_config() -> config*;
 
@@ -231,8 +232,17 @@ public:
   /// @param radius The radius of the brush, in meters.
   void apply_water_brush(float x, float y, float radius);
 
+  /// @brief Adds water uniformly across the terrain.
+  /// @param delta_water_height The change in height for each water cell.
+  void add_uniform_water(float delta_water_height = 0.1F);
+
   /// @brief Moves the state of the terrain forward in time.
   void step();
+
+  void read_height(float* data) const;
+
+protected:
+  void sync_height();
 
 private:
   /// @brief The configuration object for the pipeline.
@@ -255,6 +265,9 @@ private:
 
   /// @brief The sediment being carried by water.
   swap_buffer<std::unique_ptr<texture>> sediment_;
+
+  /// @brief The combined (soil + rock) layers of the terrain.
+  std::unique_ptr<texture> height_;
 
   /// @brief The shader for blending two textures.
   shader* blend_shader_{};

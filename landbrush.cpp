@@ -669,7 +669,7 @@ cpu_backend::create() -> std::shared_ptr<cpu_backend>
   return std::make_shared<cpu::cpu_backend>();
 }
 
-pipeline::pipeline(backend& bck, const uint16_t w, const uint16_t h, const float* rock)
+pipeline::pipeline(backend& bck, const uint16_t w, const uint16_t h, const float* rock, const float initial_soil_height)
 {
   flux_.current() = bck.create_texture(w, h, format::c4);
   flux_.next() = bck.create_texture(w, h, format::c4);
@@ -689,6 +689,8 @@ pipeline::pipeline(backend& bck, const uint16_t w, const uint16_t h, const float
   sediment_.current() = bck.create_texture(w, h, format::c1);
   sediment_.next() = bck.create_texture(w, h, format::c1);
 
+  height_ = bck.create_texture(w, h, format::c1);
+
   brush_ = bck.create_texture(w, h, format::c1);
 
   blend_shader_ = bck.get_shader("blend");
@@ -697,6 +699,13 @@ pipeline::pipeline(backend& bck, const uint16_t w, const uint16_t h, const float
   flow_shader_ = bck.get_shader("flow");
   hydraulic_erosion_shader_ = bck.get_shader("hydraulic_erosion");
   hydraulic_transport_shader_ = bck.get_shader("hydraulic_transport");
+
+  {
+    std::vector<float> soil_data(static_cast<size_t>(w) * static_cast<size_t>(h), initial_soil_height);
+    soil_.current()->write(soil_data.data());
+  }
+
+  sync_height();
 }
 
 auto
@@ -727,12 +736,34 @@ pipeline::apply_water_brush(float x, float y, float r)
   blend_shader_->set_texture("beta", brush_.get());
   blend_shader_->set_texture("gamma", water_.next().get());
   blend_shader_->invoke();
+
+  water_.step();
+}
+
+void
+pipeline::add_uniform_water(const float delta_water_height)
+{
+  {
+    const auto s = brush_->get_size();
+    std::vector<float> data(s.total(), delta_water_height);
+    brush_->write(data.data());
+  }
+
+  blend_shader_->set_float("k_alpha", 1.0F);
+  blend_shader_->set_float("k_beta", 1.0F);
+  blend_shader_->set_texture("alpha", water_.current().get());
+  blend_shader_->set_texture("beta", brush_.get());
+  blend_shader_->set_texture("gamma", water_.next().get());
+  blend_shader_->invoke();
+
+  water_.step();
 }
 
 void
 pipeline::step()
 {
   for (uint32_t i = 0; i < config_.iterations_per_step; i++) {
+
     flux_shader_->set_float("gravity", config_.gravity);
     flux_shader_->set_float("pipe_length", config_.pipe_length);
     flux_shader_->set_float("pipe_radius", config_.pipe_radius);
@@ -787,6 +818,25 @@ pipeline::step()
 
     water_.step();
   }
+
+  sync_height();
+}
+
+void
+pipeline::read_height(float* data) const
+{
+  height_->read(data);
+}
+
+void
+pipeline::sync_height()
+{
+  blend_shader_->set_float("k_alpha", 1.0F);
+  blend_shader_->set_float("k_beta", 1.0F);
+  blend_shader_->set_texture("alpha", rock_.get());
+  blend_shader_->set_texture("beta", soil_.current().get());
+  blend_shader_->set_texture("gamma", height_.get());
+  blend_shader_->invoke();
 }
 
 } // namespace landbrush
