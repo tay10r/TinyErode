@@ -1,11 +1,10 @@
 #include "landbrush.h"
 
+#include <assert.h>
 #include <math.h>
 #include <string.h>
 
 #include <unordered_map>
-
-#include <iostream>
 
 namespace landbrush {
 
@@ -80,7 +79,8 @@ public:
   {
     // Check that texture was actually set.
     for (auto& p : texture_params_) {
-      if (p.second == nullptr) {
+      assert(*p.second != nullptr);
+      if (*p.second == nullptr) {
         return false;
       }
     }
@@ -451,7 +451,9 @@ protected:
       const float netflow[2]{ ((inflow[0] - outflow[0]) + (outflow[2] - inflow[2])) * 0.5F,
                               ((inflow[1] - outflow[1]) + (outflow[3] - inflow[3])) * 0.5F };
 
-      const float h = 2.0F / (pipe_length_ * water0[i] * water1[i]);
+      const float avg_water = (water0[i] + water1[1]) * 0.5F;
+
+      const float h = (avg_water > 1.0e-4F) ? (1.0F / (pipe_length_ * avg_water)) : 0.0F;
 
       const float velocity[2]{ netflow[0] * h, netflow[1] * h };
       const float velocity_mag = sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
@@ -462,21 +464,21 @@ protected:
 
       float delta_soil{ 0.0F };
 
-      const auto s0 = sediment0[i];
+      const auto current_sediment = sediment0[i];
 
-      if (c > s0) {
-        // erode
-        delta_soil = ke_ * (s0 - c);
+      const auto current_soil = soil0[i];
+
+      if (c > current_sediment) {
+        // erode (but not more than there is soil)
+        delta_soil = fmaxf(ke_ * (current_sediment - c), -current_soil);
       } else {
         // deposit
-        delta_soil = kd_ * (s0 - c);
+        delta_soil = kd_ * (current_sediment - c);
       }
 
-      std::cout << delta_soil << std::endl;
+      soil1[i] = current_soil + delta_soil;
 
-      soil1[i] = soil0[i] + delta_soil;
-
-      sediment1[i] = s0 - delta_soil;
+      sediment1[i] = current_sediment - delta_soil;
     }
   }
 
@@ -515,25 +517,105 @@ class hydraulic_transport_shader final : public shader_base
 public:
   hydraulic_transport_shader()
   {
-    //
+    add_float_param("dt", &time_delta_);
+    add_float_param("pipe_length", &pipe_length_);
+
+    add_texture_param("flux", &flux_);
+    add_texture_param("last_water", &last_water_);
+    add_texture_param("next_water", &next_water_);
+    add_texture_param("last_sediment", &last_sediment_);
+    add_texture_param("next_sediment", &next_sediment_);
   }
 
 protected:
   void invoke_impl() override
   {
-    //
+    const auto* flux = flux_->get_data();
+    const auto* water0 = last_water_->get_data();
+    const auto* water1 = next_water_->get_data();
+    const auto* sediment0 = last_sediment_->get_data();
+    auto* sediment1 = next_sediment_->get_data();
+
+    const auto s = last_sediment_->get_size();
+    const auto num_cells = s.total();
+
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
+
+    for (uint32_t i = 0; i < num_cells; i++) {
+
+      const auto x = i % s.width;
+      const auto y = i / s.width;
+
+      float outflow[4]{ flux[0], flux[1], flux[2], flux[3] };
+
+      float inflow[4]{ 0, 0, 0, 0 };
+
+      if (x > 0) {
+        inflow[0] = flux[(i - 1) * 4 + 2];
+      }
+
+      if (y > 0) {
+        inflow[1] = flux[(i - s.width) * 4 + 3];
+      }
+
+      if (x < (s.width - 1)) {
+        inflow[2] = flux[(i + 1) * 4];
+      }
+
+      if (y < (s.height - 1)) {
+        inflow[3] = flux[(i + s.width) * 4 + 1];
+      }
+
+      const float netflow[2]{ ((inflow[0] - outflow[0]) + (outflow[2] - inflow[2])) * 0.5F,
+                              ((inflow[1] - outflow[1]) + (outflow[3] - inflow[3])) * 0.5F };
+
+      const float avg_water = (water0[i] + water1[1]) * 0.5F;
+
+      const float h = (avg_water > 1.0e-4F) ? (1.0F / (pipe_length_ * avg_water)) : 0.0F;
+
+      const float velocity[2]{ netflow[0] * h, netflow[1] * h };
+
+      const float xx = static_cast<float>(x) * pipe_length_ + velocity[0] * time_delta_;
+      const float yy = static_cast<float>(y) * pipe_length_ + velocity[1] * time_delta_;
+
+      const int x0 = static_cast<int>(xx);
+      const int y0 = static_cast<int>(yy);
+
+      // TODO : interpolate
+      float tmp_s{ 0.0F };
+      if ((x0 >= 0) && (x0 < s.width) && (y0 >= 0) && (y0 < s.height)) {
+        tmp_s = sediment0[y0 * s.width + x];
+      }
+      sediment1[i] = tmp_s;
+    }
   }
 
 private:
+  float time_delta_{ 1.0e-3F };
+
+  float pipe_length_{ 10.0F };
+
+  texture* flux_{};
+
+  texture* last_water_{};
+
+  texture* next_water_{};
+
+  texture* last_sediment_{};
+
+  texture* next_sediment_{};
 };
 
 class cpu_backend final : public landbrush::cpu_backend
 {
 public:
-  auto create_texture(const uint16_t w, const uint16_t h, const format format)
-    -> std::shared_ptr<landbrush::texture> override
+  auto create_texture(const uint16_t w,
+                      const uint16_t h,
+                      const format format) -> std::unique_ptr<landbrush::texture> override
   {
-    return std::make_shared<texture>(w, h, format);
+    return std::make_unique<texture>(w, h, format);
   }
 
   auto get_shader(const char* name) -> shader* override
@@ -585,6 +667,126 @@ auto
 cpu_backend::create() -> std::shared_ptr<cpu_backend>
 {
   return std::make_shared<cpu::cpu_backend>();
+}
+
+pipeline::pipeline(backend& bck, const uint16_t w, const uint16_t h, const float* rock)
+{
+  flux_.current() = bck.create_texture(w, h, format::c4);
+  flux_.next() = bck.create_texture(w, h, format::c4);
+
+  rock_ = bck.create_texture(w, h, format::c1);
+
+  if (rock != nullptr) {
+    rock_->write(rock);
+  }
+
+  soil_.current() = bck.create_texture(w, h, format::c1);
+  soil_.next() = bck.create_texture(w, h, format::c1);
+
+  water_.current() = bck.create_texture(w, h, format::c1);
+  water_.next() = bck.create_texture(w, h, format::c1);
+
+  sediment_.current() = bck.create_texture(w, h, format::c1);
+  sediment_.next() = bck.create_texture(w, h, format::c1);
+
+  brush_ = bck.create_texture(w, h, format::c1);
+
+  blend_shader_ = bck.get_shader("blend");
+  brush_shader_ = bck.get_shader("brush");
+  flux_shader_ = bck.get_shader("flux");
+  flow_shader_ = bck.get_shader("flow");
+  hydraulic_erosion_shader_ = bck.get_shader("hydraulic_erosion");
+  hydraulic_transport_shader_ = bck.get_shader("hydraulic_transport");
+}
+
+auto
+pipeline::get_config() const -> const config*
+{
+  return &config_;
+}
+
+auto
+pipeline::get_config() -> config*
+{
+  return &config_;
+}
+
+void
+pipeline::apply_water_brush(float x, float y, float r)
+{
+  brush_shader_->set_float("x", x);
+  brush_shader_->set_float("y", y);
+  brush_shader_->set_float("radius", r);
+  brush_shader_->set_float("pipe_length", config_.pipe_length);
+  brush_shader_->set_texture("output", brush_.get());
+  brush_shader_->invoke();
+
+  blend_shader_->set_float("k_alpha", 1.0F);
+  blend_shader_->set_float("k_beta", 1.0F);
+  blend_shader_->set_texture("alpha", water_.current().get());
+  blend_shader_->set_texture("beta", brush_.get());
+  blend_shader_->set_texture("gamma", water_.next().get());
+  blend_shader_->invoke();
+}
+
+void
+pipeline::step()
+{
+  for (uint32_t i = 0; i < config_.iterations_per_step; i++) {
+    flux_shader_->set_float("gravity", config_.gravity);
+    flux_shader_->set_float("pipe_length", config_.pipe_length);
+    flux_shader_->set_float("pipe_radius", config_.pipe_radius);
+    flux_shader_->set_float("dt", config_.time_delta);
+    flux_shader_->set_texture("rock", rock_.get());
+    flux_shader_->set_texture("soil", soil_.current().get());
+    flux_shader_->set_texture("water", water_.current().get());
+    flux_shader_->set_texture("last_flux", flux_.current().get());
+    flux_shader_->set_texture("next_flux", flux_.next().get());
+    flux_shader_->invoke();
+
+    flux_.step();
+
+    flow_shader_->set_float("dt", config_.time_delta);
+    flow_shader_->set_float("pipe_length", config_.pipe_length);
+    flow_shader_->set_texture("flux", flux_.current().get());
+    flow_shader_->set_texture("last_water", water_.current().get());
+    flow_shader_->set_texture("next_water", water_.next().get());
+    flow_shader_->invoke();
+
+    hydraulic_erosion_shader_->set_float("carry_capacity", config_.carry_capacity);
+    hydraulic_erosion_shader_->set_float("deposition", config_.deposition);
+    hydraulic_erosion_shader_->set_float("erosion", config_.erosion);
+    hydraulic_erosion_shader_->set_float("dt", config_.time_delta);
+    hydraulic_erosion_shader_->set_float("min_tilt", config_.min_tilt);
+    hydraulic_erosion_shader_->set_texture("flux", flux_.current().get());
+    hydraulic_erosion_shader_->set_texture("rock", rock_.get());
+    hydraulic_erosion_shader_->set_texture("last_soil", soil_.current().get());
+    hydraulic_erosion_shader_->set_texture("next_soil", soil_.next().get());
+    hydraulic_erosion_shader_->set_texture("last_water", water_.current().get());
+    hydraulic_erosion_shader_->set_texture("next_water", water_.next().get());
+    hydraulic_erosion_shader_->set_texture("last_sediment", sediment_.current().get());
+    hydraulic_erosion_shader_->set_texture("next_sediment", sediment_.next().get());
+    hydraulic_erosion_shader_->invoke();
+
+    sediment_.step();
+
+    hydraulic_transport_shader_->set_float("dt", config_.time_delta);
+    hydraulic_transport_shader_->set_float("pipe_length", config_.pipe_length);
+    hydraulic_transport_shader_->set_texture("flux", flux_.current().get());
+    hydraulic_transport_shader_->set_texture("last_water", water_.current().get());
+    hydraulic_transport_shader_->set_texture("next_water", water_.next().get());
+    hydraulic_transport_shader_->set_texture("last_sediment", sediment_.current().get());
+    hydraulic_transport_shader_->set_texture("next_sediment", sediment_.next().get());
+    hydraulic_transport_shader_->invoke();
+
+    // end
+
+    soil_.step();
+
+    sediment_.step();
+
+    water_.step();
+  }
 }
 
 } // namespace landbrush

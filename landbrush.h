@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: MIT
  *
- *  ______               _
- * |  ____|             (_)
- * | |__   _ __ ___  ___ _  ___  _ __
- * |  __| | '__/ _ \/ __| |/ _ \| '_ \
- * | |____| | | (_) \__ \ | (_) | | | |
- * |______|_|  \___/|___/_|\___/|_| |_|
+ *  _                 _ _                    _
+ * | |               | | |                  | |
+ * | | __ _ _ __   __| | |__  _ __ _   _ ___| |__
+ * | |/ _` | '_ \ / _` | '_ \| '__| | | / __| '_ \
+ * | | (_| | | | | (_| | |_) | |  | |_| \__ \ | | |
+ * |_|\__,_|_| |_|\__,_|_.__/|_|   \__,_|___/_| |_|
  *
- * Copyright (C) 2021 Taylor Holberton
+ * Copyright (C) 2021-2025 Taylor Holberton
  *
- * A C++ library for simulating erosion.
+ * A C++ library for modeling terrain.
  */
 
 #pragma once
@@ -90,7 +90,7 @@ public:
 auto
 same_size(const texture& t1, const texture& t2) -> bool;
 
-/// @brief Represents a function in the simulation that typically operates on textures.
+/// @brief Represents a function in the pipeline that typically operates on textures.
 class shader
 {
 public:
@@ -132,7 +132,7 @@ public:
   /// @param h The height of the texture.
   /// @param fmt The format of the texture.
   /// @return A new texture instance.
-  virtual auto create_texture(uint16_t w, uint16_t h, format fmt) -> std::shared_ptr<texture> = 0;
+  virtual auto create_texture(uint16_t w, uint16_t h, format fmt) -> std::unique_ptr<texture> = 0;
 
   /// @brief Gets access to a shader, if it is supported by the backend.
   /// @param name The name of the shader to access.
@@ -172,6 +172,107 @@ private:
   T elements_[2];
 
   uint8_t index_{};
+};
+
+/// @brief This is a high-level object providing a practical pipeline for eroding terrain.
+///        It creates the required set of textures and utilizes the various shaders from
+///        the backend to complete the terrain modeling pipeline.
+class pipeline final
+{
+public:
+  /// @brief Contains the data required to tweek the pipeline.
+  struct config final
+  {
+    /// @brief The number of seconds between time iterations. The lower this number is, the more accurate and stable the
+    /// pipeline is.
+    float time_delta{ 0.01F };
+
+    /// @brief The distance between cells, in terms of meters.
+    float pipe_length{ 10.0F };
+
+    /// @brief The radius of the virtual pipe connecting cells.
+    ///        This can be used to increase or descrease the total rate of flow.
+    float pipe_radius{ 2.0F };
+
+    /// @brief The amount of gravity.
+    float gravity{ 9.8F };
+
+    /// @brief Affects the amount of sediment that can be carried by water.
+    float carry_capacity{ 1.0F };
+
+    /// @brief Affects how the rate at which soil can be picked up by water.
+    float erosion{ 1.0F };
+
+    /// @brief Affects how the rate at which soil can be dropped by water.
+    float deposition{ 1.0F };
+
+    /// @brief The minimum amount of tilt to assume for each cell in the terrain, when it comes to hydraulic erosion.
+    float min_tilt{ 0.01F };
+
+    /// @brief The number of time iterations per step.
+    uint32_t iterations_per_step{ 16 };
+  };
+
+  /// @brief Constructs a new pipeline object.
+  /// @param bck The backend being used to accelerate the computation.
+  /// @param w The width of the terrain, in terms of texels.
+  /// @param h The height of the terrain, in terms of texels.
+  /// @param rock_data The data for the rock base layer.
+  ///                  This may be null, in which case the rock base layer will remain flat.
+  pipeline(backend& bck, uint16_t w, uint16_t h, const float* rock_data);
+
+  auto get_config() -> config*;
+
+  auto get_config() const -> const config*;
+
+  /// @brief Applies a water brush, causing water to fall onto the terrain where the brush is located.
+  /// @param x The location of the brush, in meters.
+  /// @param y The location of the brush, in meters.
+  /// @param radius The radius of the brush, in meters.
+  void apply_water_brush(float x, float y, float radius);
+
+  /// @brief Moves the state of the terrain forward in time.
+  void step();
+
+private:
+  /// @brief The configuration object for the pipeline.
+  config config_;
+
+  /// @brief The texture containing the mask of where the brush was last applied.
+  std::unique_ptr<texture> brush_;
+
+  /// @brief The texture containing the output flux of each cell in the terrain.
+  swap_buffer<std::unique_ptr<texture>> flux_;
+
+  /// @brief The base layer of the terrain, which does not change.
+  std::unique_ptr<texture> rock_;
+
+  /// @brief The layer of the terrain which can be modified.
+  swap_buffer<std::unique_ptr<texture>> soil_;
+
+  /// @brief The water layer in the terrain, responsible for hydraulic erosion, deposition and transport.
+  swap_buffer<std::unique_ptr<texture>> water_;
+
+  /// @brief The sediment being carried by water.
+  swap_buffer<std::unique_ptr<texture>> sediment_;
+
+  /// @brief The shader for blending two textures.
+  shader* blend_shader_{};
+
+  /// @brief Used for generating brush patterns. Useful for interactive editing.
+  shader* brush_shader_{};
+
+  /// @brief The shader for computing flux.
+  shader* flux_shader_{};
+
+  /// @brief The shader for transporting water.
+  shader* flow_shader_{};
+
+  /// @brief For picking up and depositing sediment with water.
+  shader* hydraulic_erosion_shader_{};
+
+  /// @brief For transporting sediment suspended in water.
+  shader* hydraulic_transport_shader_{};
 };
 
 } // namespace landbrush

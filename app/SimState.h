@@ -28,7 +28,13 @@ public:
 
   auto GetWaterTexture() -> Texture&;
 
+  auto GetHeightTexture() -> Texture&;
+
   auto GetWaterTextureSB() -> SwapBuffer<std::shared_ptr<Texture>>& { return m_water; }
+
+  auto GetSoilTexture() -> Texture&;
+
+  auto GetSedimentTexture() -> Texture&;
 
   auto GetConfig() const -> const Config& { return m_config; }
 
@@ -42,6 +48,8 @@ private:
   SwapBuffer<std::shared_ptr<Texture>> m_soil;
 
   SwapBuffer<std::shared_ptr<Texture>> m_sediment;
+
+  std::shared_ptr<Texture> height_;
 
   Config m_config;
 };

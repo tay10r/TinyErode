@@ -21,7 +21,9 @@ enum class Layer
 {
   ROCK,
   WATER,
-  ROCK_WATER
+  HEIGHT_WATER,
+  SOIL,
+  SEDIMENT,
 };
 
 auto
@@ -32,8 +34,12 @@ ToString(const Layer layer) -> const char*
       return "Rock";
     case Layer::WATER:
       return "Water";
-    case Layer::ROCK_WATER:
-      return "Rock+Water";
+    case Layer::HEIGHT_WATER:
+      return "Rock+Soil and Water";
+    case Layer::SOIL:
+      return "Soil";
+    case Layer::SEDIMENT:
+      return "Sediment";
   }
   return "";
 }
@@ -41,18 +47,20 @@ ToString(const Layer layer) -> const char*
 auto
 ComboBox(const char* label, Layer* layer) -> bool
 {
+  const Layer layers[]{ Layer::ROCK, Layer::WATER, Layer::HEIGHT_WATER, Layer::SOIL, Layer::SEDIMENT };
+
+  const auto num_layers = sizeof(layers) / sizeof(layers[0]);
+
   if (ImGui::BeginCombo(label, ToString(*layer))) {
-    if (ImGui::Selectable(ToString(Layer::ROCK), *layer == Layer::ROCK)) {
-      *layer = Layer::ROCK;
-    }
-    if (ImGui::Selectable(ToString(Layer::WATER), *layer == Layer::WATER)) {
-      *layer = Layer::WATER;
-    }
-    if (ImGui::Selectable(ToString(Layer::ROCK_WATER), *layer == Layer::ROCK_WATER)) {
-      *layer = Layer::ROCK_WATER;
+    auto changed{ false };
+    for (auto i = 0; i < num_layers; i++) {
+      if (ImGui::Selectable(ToString(layers[i]), *layer == layers[i])) {
+        *layer = layers[i];
+        changed = true;
+      }
     }
     ImGui::EndCombo();
-    return false;
+    return changed;
   }
   return false;
 }
@@ -140,8 +148,14 @@ public:
       case Layer::WATER:
         UpdateTexture(s.GetWaterTexture(), m_layer, config);
         break;
-      case Layer::ROCK_WATER:
-        RenderRockAndWater(s.GetRockTexture(), s.GetWaterTexture(), config);
+      case Layer::SOIL:
+        UpdateTexture(s.GetSoilTexture(), m_layer, config);
+        break;
+      case Layer::SEDIMENT:
+        UpdateTexture(s.GetSedimentTexture(), m_layer, config);
+        break;
+      case Layer::HEIGHT_WATER:
+        RenderHeightAndWater(s.GetHeightTexture(), s.GetWaterTexture(), config);
         break;
     }
   }
@@ -153,13 +167,13 @@ protected:
     return std::max(std::min(x, max_x), min_x);
   }
 
-  void RenderRockAndWater(const landbrush::texture& rockTex, landbrush::texture& waterTex, const Config& config)
+  void RenderHeightAndWater(const landbrush::texture& heightTex, landbrush::texture& waterTex, const Config& config)
   {
     const auto w = config.width;
     const auto h = config.height;
 
-    std::vector<float> rockData(w * h);
-    rockTex.read(rockData.data());
+    std::vector<float> heightData(w * h);
+    heightTex.read(heightData.data());
 
     std::vector<float> waterData(w * h);
     waterTex.read(waterData.data());
@@ -168,13 +182,13 @@ protected:
 
     const auto numCells = w * h;
 
-    const auto eScale = 1.0F / config.maxElevation;
+    const auto eScale = 1.0F / (config.rock_height + config.initial_soil_height);
 
     for (auto i = 0; i < numCells; i++) {
 
       float rgba[4]{ 0, 0, 0, 1 };
 
-      const auto r = Clamp(rockData[i] * eScale, 0.0F, 1.0F);
+      const auto r = Clamp(heightData[i] * eScale, 0.0F, 1.0F);
       const auto w = Clamp(waterData[i], 0.0F, 1.0F);
 
       rgba[0] = r;
@@ -213,7 +227,8 @@ protected:
 
     const auto numCells = size.width * size.height;
 
-    const auto eScale = 1.0F / config.maxElevation;
+    const auto r_scale = 1.0F / config.rock_height;
+    const auto s_scale = 1.0F / config.initial_soil_height;
 
     // convert to RGBA
 
@@ -225,11 +240,17 @@ protected:
 
       switch (layer) {
         case Layer::ROCK:
-          rgba[0] = src[0] * eScale;
-          rgba[1] = src[0] * eScale;
-          rgba[2] = src[0] * eScale;
+          rgba[0] = src[0] * r_scale;
+          rgba[1] = src[0] * r_scale;
+          rgba[2] = src[0] * r_scale;
+          break;
+        case Layer::SOIL:
+          rgba[0] = src[0] * s_scale;
+          rgba[1] = src[0] * s_scale;
+          rgba[2] = src[0] * s_scale;
           break;
         case Layer::WATER:
+        case Layer::SEDIMENT:
           rgba[0] = src[0];
           rgba[1] = src[0];
           rgba[2] = src[0];

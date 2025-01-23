@@ -34,7 +34,9 @@ ControlWidget::Step(Config* config) -> ControlButton
 
   ImGui::EndDisabled();
 
-  ImGui::SliderFloat("Max Elevation [m]", &config->maxElevation, 1.0F, 1000.0F);
+  ImGui::SliderFloat("Rock Height [m]", &config->rock_height, 1.0F, 1000.0F);
+
+  ImGui::SliderFloat("Initial Soil Height [m]", &config->initial_soil_height, 0.0F, 100.0F);
 
   if (ImGui::Button("Reset")) {
     button = ControlButton::RESET;

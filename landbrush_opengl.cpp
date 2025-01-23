@@ -17,7 +17,7 @@ class opengl_backend final : public landbrush::opengl_backend
 public:
   explicit opengl_backend(loader ldr) { gladLoadGLES2(reinterpret_cast<GLADloadfunc>(ldr)); }
 
-  auto create_texture(uint16_t w, uint16_t h, format fmt) -> std::shared_ptr<texture> override
+  auto create_texture(uint16_t w, uint16_t h, format fmt) -> std::unique_ptr<texture> override
   {
     // TODO
     return nullptr;

@@ -96,9 +96,6 @@ protected:
       noise.SetFractalOctaves(8);
       m_simState->HeightNoise(noise, m_config.distancePerCell);
     } else {
-      if (m_config.image16Bit) {
-      } else {
-      }
       int w{};
       int h{};
       auto* data = stbi_load(m_config.imagePath.c_str(), &w, &h, nullptr, 1);

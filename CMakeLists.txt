@@ -36,7 +36,7 @@ endif(LANDBRUSH_OPENMP AND OpenMP_FOUND)
 add_library(landbrush::landbrush ALIAS landbrush)
 
 if(LANDBRUSH_EXAMPLE)
-  #add_subdirectory(example)
+  add_subdirectory(example)
 endif(LANDBRUSH_EXAMPLE)
 
 if(LANDBRUSH_PYTHON OR LANDBRUSH_APP)

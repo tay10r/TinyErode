@@ -4,6 +4,9 @@
 
 struct Config final
 {
+  // Initial Conditions
+  // ------------------
+
   /// If non-empty, use this instead of noise.
   std::string imagePath;
 
@@ -17,11 +20,16 @@ struct Config final
 
   int height{ 256 };
 
-  int speedup{ 50 };
-
-  float maxElevation{ 50.0F };
-
   float distancePerCell{ 10 };
+
+  float rock_height{ 30.0F };
+
+  float initial_soil_height{ 20.0F };
+
+  // Simulation
+  // ----------
+
+  int speedup{ 5 };
 
   float pipeRadius{ 1.0F };
 
@@ -29,11 +37,16 @@ struct Config final
 
   float timeDelta{ 0.001F };
 
-  float kc{ 1.0F };
+  float kc{ 0.02F };
 
-  float kd{ 1.0F };
+  float kd{ 0.1F };
 
-  float ke{ 1.0F };
+  float ke{ 0.1F };
 
   float minTilt{ 0.01F };
+
+  // Brush
+  // -----
+
+  std::string brush_mode{ "Water" };
 };
