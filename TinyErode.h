@@ -237,7 +237,7 @@ Simulation::TransportWaterAt(WaterAdder& water, int x, int y)
   // Compute Water Velocity
 
   float dx = 0.5f * ((inflow[1] - flow[1]) + (flow[2] - inflow[2]));
-  float dy = 0.5f * ((flow[0] - inflow[0]) + (inflow[3] - flow[3]));
+  float dy = 0.5f * ((flow[3] - inflow[3]) + (inflow[0] - flow[0]));
 
   float avgWaterLevel = waterLevel + (waterDelta * 0.5f);
 
@@ -339,8 +339,7 @@ Simulation::ComputeFlowAndTiltAt(const Height& height,
 
   auto abSum = a + b;
 
-  mTilt[ToIndex(x, y)] =
-    std::max(std::sqrt(abSum) / std::sqrt(1 + abSum), mMinTilt);
+  mTilt[ToIndex(x, y)] = std::sqrt(abSum) / std::sqrt(1 + abSum);
 }
 
 template<typename CarryCapacity,
@@ -375,8 +374,8 @@ Simulation::TransportSediment(CarryCapacity kC,
       auto index = ToIndex(x, y);
 
       auto vel = mVelocity[index];
-      auto xf = x - (vel[0] * mTimeStep);
-      auto yf = y + (vel[1] * mTimeStep);
+      auto xf = x - (vel[0] * mTimeStep / mPipeLengths[0]);
+      auto yf = y - (vel[1] * mTimeStep / mPipeLengths[1]);
 
       auto xfi = int(xf);
       auto yfi = int(yf);
@@ -452,7 +451,7 @@ Simulation::ErodeAndDeposit(CarryCapacity& kC,
 
   float tiltAngle = mTilt[ToIndex(x, y)];
 
-  float capacity = kC(x, y) * std::max(0.01f, tiltAngle) * velocityMagnitude;
+  float capacity = kC(x, y) * std::max(mMinTilt, tiltAngle) * velocityMagnitude;
 
   float sediment = mSediment[ToIndex(x, y)];
 
