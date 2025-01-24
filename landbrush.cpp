@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <unordered_map>
+#include <vector>
 
 namespace landbrush {
 
@@ -611,9 +612,8 @@ private:
 class cpu_backend final : public landbrush::cpu_backend
 {
 public:
-  auto create_texture(const uint16_t w,
-                      const uint16_t h,
-                      const format format) -> std::unique_ptr<landbrush::texture> override
+  auto create_texture(const uint16_t w, const uint16_t h, const format format)
+    -> std::unique_ptr<landbrush::texture> override
   {
     return std::make_unique<texture>(w, h, format);
   }

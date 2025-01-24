@@ -65,6 +65,7 @@ add_library(landbrush_app
   OpenGLShaderProgram.h
   OpenGLShaderProgram.cpp
   "${CMAKE_CURRENT_BINARY_DIR}/DroidSans.h")
+set_target_properties(landbrush_app PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(landbrush_app PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(landbrush_app PRIVATE GLFW_INCLUDE_NONE=1)
 target_link_libraries(landbrush_app
@@ -85,7 +86,7 @@ target_link_libraries(pylandbrush PRIVATE landbrush_app)
 
 add_executable(landbrush_app_exe main.cpp)
 target_link_libraries(landbrush_app_exe PRIVATE landbrush_app)
-set_target_properties(landbrush
+set_target_properties(landbrush_app_exe
   PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}"
     OUTPUT_NAME landbrush)

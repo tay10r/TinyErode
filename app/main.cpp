@@ -1,6 +1,8 @@
 #include "run.h"
 
-int main()
+int
+main()
 {
-  return run_landbrush_app(extension_registry(), "landbrush") ? EXIT_SUCCESS : EXIT_FAILURE;
+  extension_registry ext_registry;
+  return run_landbrush_app(ext_registry, "landbrush") ? EXIT_SUCCESS : EXIT_FAILURE;
 }
