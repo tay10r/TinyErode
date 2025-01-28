@@ -174,3 +174,10 @@ And that sums it up! To get a better understanding of how the algorithm works,
 try messing around with the number of iterations or modifying parameters. The
 transportation of water and sediment can also be visualized in order to
 understand how each parameter affects the simulation.
+
+## Note for OpenMP Users
+
+If you're putting TinyErode into a plugin that is dynamically loaded, ensure that
+that threads are not still busy-waiting before releasing the plugin. This has to do
+with the way OpenMP sometimes waits for new work in the global thread pool (see OpenMP wait policies).
+An easy way to fix this is to set the wait policy to passive instead of active.
