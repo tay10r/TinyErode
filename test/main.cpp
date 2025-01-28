@@ -121,6 +121,8 @@ main(int argc, char** argv)
 
   float kEvaporation = 0.1;
 
+  float minTilt = 0.01F;
+
   float xRange = 500;
   float yRange = 500;
 
@@ -155,6 +157,9 @@ main(int argc, char** argv)
                              argv[i],
                              argv[i + 1],
                              &kEvaporation)) {
+      i++;
+      continue;
+    } else if (ParseFloatOpt("--min-tilt", argv[i], argv[i + 1], &minTilt)) {
       i++;
       continue;
     } else if (ParseFloatOpt("--time-step", argv[i], argv[i + 1], &timeStep)) {
@@ -229,6 +234,7 @@ main(int argc, char** argv)
     simulation.SetTimeStep(timeStep);
     simulation.SetMetersPerX(xRange / w);
     simulation.SetMetersPerY(yRange / h);
+    simulation.SetMinTilt(minTilt);
 
     std::cout << "Simulating rainfall " << i << " of " << rainfalls
               << std::endl;

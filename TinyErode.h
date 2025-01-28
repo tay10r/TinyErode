@@ -327,19 +327,18 @@ Simulation::ComputeFlowAndTiltAt(const Height& height,
   float avgDeltaY = 0;
   avgDeltaY += (centerH - heightNeighbors[0]);
   avgDeltaY += (heightNeighbors[3] - centerH);
-  avgDeltaY *= 0.5f;
+  avgDeltaY /= 2.0F * mPipeLengths[1];
 
   float avgDeltaX = 0;
   avgDeltaX += (centerH - heightNeighbors[1]);
   avgDeltaX += (heightNeighbors[2] - centerH);
-  avgDeltaX *= 0.5f;
+  avgDeltaX /= 2.0F * mPipeLengths[0];
 
   float a = avgDeltaX * avgDeltaX;
   float b = avgDeltaY * avgDeltaY;
+  auto tilt = sqrtf(a + b);
 
-  auto abSum = a + b;
-
-  mTilt[ToIndex(x, y)] = std::sqrt(abSum) / std::sqrt(1 + abSum);
+  mTilt[ToIndex(x, y)] = tilt;
 }
 
 template<typename CarryCapacity,
